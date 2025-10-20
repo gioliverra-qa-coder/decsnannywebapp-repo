@@ -20,7 +20,7 @@ export default function Index() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-green-50 to-emerald-50">
+    <div className="min-h-screen bg-gradient-to-br from-green-50 to-emerald-50 px-2 sm:px-4">
       {/* Header */}
       <header className="bg-white shadow-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
@@ -31,7 +31,7 @@ export default function Index() {
             >
               DecsNanny
             </h1>
-            <div className="flex items-center space-x-4">
+            <div className="flex flex-wrap justify-end gap-2">
               <Button variant="ghost" onClick={() => navigate('/nannies')}>
                 Find Nannies
               </Button>
@@ -63,7 +63,7 @@ export default function Index() {
       {/* Hero Section */}
       <section className="py-20 px-4 sm:px-6 lg:px-8">
         <div className="max-w-4xl mx-auto text-center">
-          <h2 className="text-5xl font-bold text-gray-900 mb-6">
+          <h2 className="text-3xl sm:text-4xl md:text-5xl font-bold text-gray-900 mb-6">
             Find the Perfect Nanny for Your Family
           </h2>
           <p className="text-xl text-gray-600 mb-8 max-w-2xl mx-auto">
@@ -89,7 +89,7 @@ export default function Index() {
           <h3 className="text-3xl font-bold text-center text-gray-900 mb-12">
             Why Choose DecsNanny?
           </h3>
-          <div className="grid md:grid-cols-4 gap-8">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
             <Card className="text-center">
               <CardContent className="p-6">
                 <Shield className="w-12 h-12 text-green-600 mx-auto mb-4" />
@@ -128,7 +128,7 @@ export default function Index() {
           <h3 className="text-3xl font-bold text-center text-gray-900 mb-12">
             Featured Nannies
           </h3>
-          <div className="grid md:grid-cols-3 gap-6 mb-8">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
             {featuredNannies.map((nanny) => (
               <NannyCard key={nanny.id} nanny={nanny} />
             ))}
