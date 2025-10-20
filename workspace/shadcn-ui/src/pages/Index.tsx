@@ -25,11 +25,13 @@ export default function Index() {
       <header className="bg-white shadow-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
           <div className="flex justify-between items-center">
-            <h1 
-              className="text-2xl font-bold text-green-600 cursor-pointer hover:text-green-700 transition-colors"
-              onClick={() => navigate('/')}
-            >
-              DecsNanny
+            <h1>
+              <img
+                src="/decsnanny-logo.png"
+                alt="DecsNanny Logo"
+                className="h-10 w-auto cursor-pointer"
+                onClick={() => navigate('/')}
+              />
             </h1>
             <div className="flex flex-wrap justify-end gap-2">
               <Button variant="ghost" onClick={() => navigate('/nannies')}>
