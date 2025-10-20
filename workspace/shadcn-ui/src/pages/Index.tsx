@@ -5,6 +5,7 @@ import { useNavigate } from 'react-router-dom';
 import { mockNannies } from '../data/mockData';
 import { useAuth } from '../contexts/AuthContext';
 import NannyCard from '../components/NannyCard';
+import logo from '@/assets/decsnanny-logo.png';
 
 export default function Index() {
   const navigate = useNavigate();
@@ -27,7 +28,7 @@ export default function Index() {
           <div className="flex justify-between items-center">
             <h1>
               <img
-                src="/decsnanny-logo.png"
+                src={logo}
                 alt="DecsNanny Logo"
                 className="h-10 w-auto cursor-pointer"
                 onClick={() => navigate('/')}
