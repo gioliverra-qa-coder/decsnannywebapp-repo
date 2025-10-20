@@ -5,7 +5,7 @@ import { useNavigate } from 'react-router-dom';
 import { mockNannies } from '../data/mockData';
 import { useAuth } from '../contexts/AuthContext';
 import NannyCard from '../components/NannyCard';
-import logo from './assets/decsnanny-logo.png';
+import logo from '../assets/decsnanny-logo.png';
 
 export default function Index() {
   const navigate = useNavigate();
