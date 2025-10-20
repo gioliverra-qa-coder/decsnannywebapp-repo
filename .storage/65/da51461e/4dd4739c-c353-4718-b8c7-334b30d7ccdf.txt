@@ -1,0 +1,33 @@
+$ find src -type f -name "*.tsx" -o -name "*.ts" | xargs grep -l "Dec'sNanny" | head -10
+src/pages/BookingForm.tsx
+src/pages/Index.tsx
+src/pages/Login.tsx
+src/pages/MyBookings.tsx
+src/pages/NannyDashboard.tsx
+src/pages/NannyList.tsx
+src/pages/NannyProfile.tsx
+src/pages/Profile.tsx
+src/pages/ProfileSetup.tsx
+src/pages/Register.tsx
+$ find src -type f \( -name "*.tsx" -o -name "*.ts" \) -exec sed -i "s/Dec'sNanny/DecsNanny/g" {} \;
+
+$ pnpm run build
+
+
+> shadcnui@ build /workspace/shadcn-ui
+> vite build
+
+vite v5.4.19 building for production...
+transforming...
+✓ 2452 modules transformed.
+rendering chunks...
+computing gzip size...
+dist/index.html                   0.80 kB │ gzip:   0.41 kB
+dist/assets/index-Bn-o3XES.css   64.74 kB │ gzip:  11.29 kB
+dist/assets/index-BpysrVOM.js   550.56 kB │ gzip: 166.00 kB
+
+(!) Some chunks are larger than 500 kB after minification. Consider:
+- Using dynamic import() to code-split the application
+- Use build.rollupOptions.output.manualChunks to improve chunking: https://rollupjs.org/configuration-options/#output-manualchunks
+- Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.
+✓ built in 6.34s

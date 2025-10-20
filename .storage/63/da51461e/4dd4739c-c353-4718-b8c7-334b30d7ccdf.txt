@@ -1,0 +1,13 @@
+$ find src -type f -name "*.tsx" -o -name "*.ts" | xargs grep -l "Dec'sNanny" | head -10
+src/pages/BookingForm.tsx
+src/pages/Index.tsx
+src/pages/Login.tsx
+src/pages/MyBookings.tsx
+src/pages/NannyDashboard.tsx
+src/pages/NannyList.tsx
+src/pages/NannyProfile.tsx
+src/pages/Profile.tsx
+src/pages/ProfileSetup.tsx
+src/pages/Register.tsx
+$ find src -type f \( -name "*.tsx" -o -name "*.ts" \) -exec sed -i "s/Dec'sNanny/DecsNanny/g" {} \;
+
