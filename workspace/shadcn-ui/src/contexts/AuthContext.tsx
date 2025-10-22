@@ -1,12 +1,22 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { User, AuthState, Booking } from '../types/user';
+import { toast } from 'sonner';
+
+// --- Supabase setup ---
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL!;
+const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY!;
+const supabase: SupabaseClient = createClient(supabaseUrl, supabaseKey);
 
 interface AuthContextType extends AuthState {
-  login: (email: string, password: string, userType: 'parent' | 'nanny') => Promise<boolean>;
+  login: (email: string, password: string) => Promise<boolean>;
   register: (userData: Partial<User>, password: string) => Promise<boolean>;
   logout: () => void;
   updateProfile: (userData: Partial<User>) => Promise<boolean>;
-  updateBookingStatus: (bookingId: string, status: 'pending' | 'accepted' | 'declined' | 'completed' | 'delivered') => void;
+  updateBookingStatus: (
+    bookingId: string,
+    status: 'pending' | 'accepted' | 'declined' | 'completed' | 'delivered'
+  ) => void;
   addBooking: (booking: Booking) => void;
   getBookings: () => Booking[];
   clearAllBookings: () => void;
@@ -16,9 +26,7 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function useAuth() {
   const context = useContext(AuthContext);
-  if (context === undefined) {
-    throw new Error('useAuth must be used within an AuthProvider');
-  }
+  if (!context) throw new Error('useAuth must be used within an AuthProvider');
   return context;
 }
 
@@ -30,132 +38,160 @@ export function AuthProvider({ children }: AuthProviderProps) {
   const [authState, setAuthState] = useState<AuthState>({
     user: null,
     isAuthenticated: false,
-    isLoading: true
+    isLoading: true,
   });
 
   useEffect(() => {
-    // Check for existing session on app load
     const savedUser = localStorage.getItem('currentUser');
     if (savedUser) {
       try {
         const user = JSON.parse(savedUser);
-        setAuthState({
-          user,
-          isAuthenticated: true,
-          isLoading: false
-        });
-      } catch (error) {
-        console.error('Error parsing saved user:', error);
+        setAuthState({ user, isAuthenticated: true, isLoading: false });
+      } catch {
         localStorage.removeItem('currentUser');
-        setAuthState(prev => ({ ...prev, isLoading: false }));
+        setAuthState((prev) => ({ ...prev, isLoading: false }));
       }
     } else {
-      setAuthState(prev => ({ ...prev, isLoading: false }));
+      setAuthState((prev) => ({ ...prev, isLoading: false }));
     }
 
-    // Clear all existing bookings and start fresh
+    // Initialize empty bookings
     localStorage.setItem('bookings', JSON.stringify([]));
   }, []);
 
-  const login = async (email: string, password: string, userType: 'parent' | 'nanny'): Promise<boolean> => {
+  // --- LOGIN ---
+  const login = async (email: string, password: string): Promise<boolean> => {
     try {
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      // Create consistent user IDs for demo
-      const userId = userType === 'parent' ? 'demo-parent' : 'demo-nanny';
-      
-      const mockUser: User = {
-        id: userId,
-        email,
-        name: userType === 'parent' ? 'John Smith' : 'Sarah Johnson',
-        phone: '+1 (555) 123-4567',
-        userType,
-        profileImage: userType === 'parent' 
-          ? 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=400&h=400&fit=crop&crop=face'
-          : 'https://images.unsplash.com/photo-1494790108755-2616b612b786?w=400&h=400&fit=crop&crop=face',
-        createdAt: new Date().toISOString()
+      // 1️⃣ Sign in
+      const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+
+      if (error || !data.user) {
+        toast.error(error?.message || 'Login failed');
+        return false;
+      }
+
+      const user = data.user;
+
+      // 2️⃣ Fetch user type from users table
+      const { data: userData, error: userError } = await supabase
+        .from('users')
+        .select('id, name, email, phone, user_type')
+        .eq('id', user.id)
+        .single();
+
+      if (userError || !userData) {
+        toast.error('User record not found');
+        return false;
+      }
+
+      const loggedUser: User = {
+        id: user.id,
+        name: userData.name,
+        email: userData.email,
+        phone: userData.phone,
+        userType: userData.user_type,
+        createdAt: new Date().toISOString(),
       };
 
-      localStorage.setItem('currentUser', JSON.stringify(mockUser));
-      setAuthState({
-        user: mockUser,
-        isAuthenticated: true,
-        isLoading: false
-      });
-      
+      localStorage.setItem('currentUser', JSON.stringify(loggedUser));
+      setAuthState({ user: loggedUser, isAuthenticated: true, isLoading: false });
+
+      toast.success('Login successful!');
       return true;
-    } catch (error) {
-      console.error('Login error:', error);
+    } catch (err: any) {
+      console.error('Unexpected login error:', err);
+      toast.error(err.message || 'An unexpected error occurred');
       return false;
     }
   };
 
+  // --- REGISTER ---
   const register = async (userData: Partial<User>, password: string): Promise<boolean> => {
     try {
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
+      const { data, error } = await supabase.auth.signUp({
+        email: userData.email!,
+        password,
+      });
+
+      if (error || !data.user) {
+        toast.error(error?.message || 'Registration failed');
+        return false;
+      }
+
+      // Insert base user record into "users" table
+      const { error: insertError } = await supabase.from('users').insert({
+        id: data.user.id,
+        name: userData.name,
+        email: userData.email,
+        phone: userData.phone,
+        user_type: userData.userType,
+        created_at: new Date().toISOString(),
+      });
+
+      if (insertError) {
+        console.error('Error creating user row:', insertError);
+        toast.error('Failed to create user record');
+        return false;
+      }
+
       const newUser: User = {
-        id: Date.now().toString(),
-        email: userData.email || '',
-        name: userData.name || '',
+        id: data.user.id,
+        name: userData.name!,
+        email: userData.email!,
         phone: userData.phone || '',
-        userType: userData.userType || 'parent',
-        profileImage: userData.profileImage,
-        createdAt: new Date().toISOString()
+        userType: userData.userType!,
+        createdAt: new Date().toISOString(),
       };
 
       localStorage.setItem('currentUser', JSON.stringify(newUser));
-      setAuthState({
-        user: newUser,
-        isAuthenticated: true,
-        isLoading: false
-      });
-      
+      setAuthState({ user: newUser, isAuthenticated: true, isLoading: false });
+
+      toast.success('Registration successful!');
       return true;
-    } catch (error) {
-      console.error('Registration error:', error);
+    } catch (err: any) {
+      console.error('Registration error:', err);
+      toast.error(err.message || 'Registration failed');
       return false;
     }
   };
 
+  // --- LOGOUT ---
   const logout = () => {
+    supabase.auth.signOut();
     localStorage.removeItem('currentUser');
-    setAuthState({
-      user: null,
-      isAuthenticated: false,
-      isLoading: false
-    });
+    setAuthState({ user: null, isAuthenticated: false, isLoading: false });
   };
 
+  // --- PROFILE UPDATE ---
   const updateProfile = async (userData: Partial<User>): Promise<boolean> => {
+    if (!authState.user) return false;
+
     try {
-      if (!authState.user) return false;
-      
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 500));
-      
+      const table = authState.user.userType === 'parent' ? 'parents' : 'nannies';
+      const { error } = await supabase.from(table).update(userData).eq('user_id', authState.user.id);
+
+      if (error) throw error;
+
       const updatedUser = { ...authState.user, ...userData };
       localStorage.setItem('currentUser', JSON.stringify(updatedUser));
-      setAuthState(prev => ({
-        ...prev,
-        user: updatedUser
-      }));
-      
+      setAuthState((prev) => ({ ...prev, user: updatedUser }));
+      toast.success('Profile updated!');
       return true;
-    } catch (error) {
-      console.error('Profile update error:', error);
+    } catch (err: any) {
+      console.error('Profile update error:', err);
+      toast.error(err.message || 'Failed to update profile');
       return false;
     }
   };
 
-  const updateBookingStatus = (bookingId: string, status: 'pending' | 'accepted' | 'declined' | 'completed' | 'delivered') => {
+  // --- BOOKINGS (localStorage) ---
+  const updateBookingStatus = (
+    bookingId: string,
+    status: 'pending' | 'accepted' | 'declined' | 'completed' | 'delivered'
+  ) => {
     const bookings = JSON.parse(localStorage.getItem('bookings') || '[]');
-    const updatedBookings = bookings.map((booking: Booking) => 
-      booking.id === bookingId 
-        ? { ...booking, status }
-        : booking
+    const updatedBookings = bookings.map((b: Booking) =>
+      b.id === bookingId ? { ...b, status } : b
     );
     localStorage.setItem('bookings', JSON.stringify(updatedBookings));
   };
@@ -166,13 +202,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
     localStorage.setItem('bookings', JSON.stringify(bookings));
   };
 
-  const getBookings = (): Booking[] => {
-    return JSON.parse(localStorage.getItem('bookings') || '[]');
-  };
-
-  const clearAllBookings = () => {
-    localStorage.setItem('bookings', JSON.stringify([]));
-  };
+  const getBookings = (): Booking[] => JSON.parse(localStorage.getItem('bookings') || '[]');
+  const clearAllBookings = () => localStorage.setItem('bookings', JSON.stringify([]));
 
   const value: AuthContextType = {
     ...authState,
@@ -183,7 +214,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
     updateBookingStatus,
     addBooking,
     getBookings,
-    clearAllBookings
+    clearAllBookings,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

@@ -2,6 +2,7 @@ node_modules/
 .DS_Store
 dist/
 .env
+.env.local
 .vscode/
 workspace/.git
 workspace/shadcn-ui/.git

@@ -3,27 +3,54 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { ArrowLeft, Star, MapPin, Clock, Users, Heart, User } from 'lucide-react';
-import { mockNannies } from '../data/mockData';
 import { useAuth } from '../contexts/AuthContext';
+import { supabase } from '../utils/supabaseClient';
+import { useEffect, useState } from 'react';
+import { toast } from 'sonner';
 
 export default function NannyProfile() {
   const { id } = useParams();
   const navigate = useNavigate();
   const { user, isAuthenticated } = useAuth();
-  const nanny = mockNannies.find(n => n.id === id);
+
+  const [nanny, setNanny] = useState<any | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  // Fetch nanny from Supabase
+  useEffect(() => {
+    async function fetchNanny() {
+      setLoading(true);
+      const { data, error } = await supabase
+        .from('nannies')
+        .select('*')
+        .eq('id', id)
+        .single();
+
+      if (error) {
+        console.error('Error fetching nanny:', error);
+        toast.error('Failed to fetch nanny info');
+        navigate('/nannies');
+      } else {
+        setNanny(data);
+      }
+      setLoading(false);
+    }
+
+    fetchNanny();
+  }, [id, navigate]);
+
+  if (loading) {
+    return <p className="text-center mt-10">Loading nanny profile...</p>;
+  }
 
   if (!nanny) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <Card>
-          <CardContent className="p-8 text-center">
-            <h2 className="text-2xl font-bold mb-4">Nanny Not Found</h2>
-            <Button onClick={() => navigate('/nannies')}>
-              Back to Nanny List
-            </Button>
-          </CardContent>
-        </Card>
-      </div>
+      <Card className="text-center py-12 mx-auto mt-10 max-w-md">
+        <CardContent>
+          <h2 className="text-2xl font-bold mb-4">Nanny Not Found</h2>
+          <Button onClick={() => navigate('/nannies')}>Back to Nanny List</Button>
+        </CardContent>
+      </Card>
     );
   }
 
@@ -32,12 +59,9 @@ export default function NannyProfile() {
       navigate('/login');
       return;
     }
-    
-    // Only allow parents to create bookings
-    if (user?.userType !== 'parent') {
-      return; // Do nothing if user is not a parent
-    }
-    
+
+    if (user?.userType !== 'parent') return;
+
     navigate(`/book/${nanny.id}`);
   };
 
@@ -45,30 +69,26 @@ export default function NannyProfile() {
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
       <header className="bg-white shadow-sm">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-          <div className="flex justify-between items-center">
-            <Button variant="ghost" onClick={() => navigate('/nannies')}>
-              <ArrowLeft className="w-4 h-4 mr-2" />
-              Back to Nannies
-            </Button>
-            <h1 className="text-2xl font-bold text-green-600">DecsNanny</h1>
-            <div className="flex items-center space-x-4">
-              {isAuthenticated ? (
-                <>
-                  <Button variant="ghost" onClick={() => navigate('/bookings')}>
-                    My Bookings
-                  </Button>
-                  <Button variant="ghost" onClick={() => navigate('/profile')}>
-                    <User className="w-4 h-4 mr-2" />
-                    {user?.name}
-                  </Button>
-                </>
-              ) : (
-                <Button onClick={() => navigate('/login')}>
-                  Login
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex justify-between items-center">
+          <Button variant="ghost" onClick={() => navigate('/nannies')}>
+            <ArrowLeft className="w-4 h-4 mr-2" />
+            Back to Nannies
+          </Button>
+          <h1 className="text-2xl font-bold text-green-600">DecsNanny</h1>
+          <div className="flex items-center space-x-4">
+            {isAuthenticated ? (
+              <>
+                <Button variant="ghost" onClick={() => navigate('/bookings')}>
+                  My Bookings
                 </Button>
-              )}
-            </div>
+                <Button variant="ghost" onClick={() => navigate('/profile')}>
+                  <User className="w-4 h-4 mr-2" />
+                  {user?.name}
+                </Button>
+              </>
+            ) : (
+              <Button onClick={() => navigate('/login')}>Login</Button>
+            )}
           </div>
         </div>
       </header>
@@ -78,67 +98,61 @@ export default function NannyProfile() {
           {/* Profile Image and Basic Info */}
           <div className="md:col-span-1">
             <Card>
-              <CardContent className="p-6">
-                <div className="text-center">
-                  <img
-                    src={nanny.photo}
-                    alt={nanny.name}
-                    className="w-32 h-32 rounded-full mx-auto mb-4 object-cover"
-                  />
-                  <h1 className="text-2xl font-bold text-gray-900 mb-2">{nanny.name}</h1>
-                  <div className="flex items-center justify-center mb-2">
-                    <Star className="w-4 h-4 text-yellow-400 fill-current" />
-                    <span className="ml-1 text-sm text-gray-600">
-                      {nanny.rating} ({nanny.reviews} reviews)
-                    </span>
-                  </div>
-                  <div className="flex items-center justify-center mb-4">
-                    <MapPin className="w-4 h-4 text-gray-400" />
-                    <span className="ml-1 text-sm text-gray-600">{nanny.location}</span>
-                  </div>
-                  <div className="text-3xl font-bold text-green-600 mb-4">
-                    ${nanny.hourlyRate}/hour
-                  </div>
-                  
-                  {/* Only show Book Now button for parents */}
-                  {user?.userType === 'parent' && (
-                    <Button 
-                      onClick={handleBookNow}
-                      className="w-full bg-green-600 hover:bg-green-700"
-                      size="lg"
-                    >
-                      <Heart className="w-4 h-4 mr-2" />
-                      Book Now
-                    </Button>
-                  )}
-                  
-                  {/* Show message for nannies */}
-                  {user?.userType === 'nanny' && (
-                    <div className="p-3 bg-blue-50 rounded-lg">
-                      <p className="text-sm text-blue-700">
-                        You're viewing this profile as a nanny. Only parents can book services.
-                      </p>
-                    </div>
-                  )}
-                  
-                  {/* Show login prompt for non-authenticated users */}
-                  {!isAuthenticated && (
-                    <Button 
-                      onClick={() => navigate('/login')}
-                      className="w-full bg-green-600 hover:bg-green-700"
-                      size="lg"
-                    >
-                      Login to Book
-                    </Button>
-                  )}
+              <CardContent className="p-6 text-center">
+                <img
+                  src={nanny.photo}
+                  alt={nanny.name}
+                  className="w-32 h-32 rounded-full mx-auto mb-4 object-cover"
+                />
+                <h1 className="text-2xl font-bold text-gray-900 mb-2">{nanny.name}</h1>
+                <div className="flex items-center justify-center mb-2">
+                  <Star className="w-4 h-4 text-yellow-400 fill-current" />
+                  <span className="ml-1 text-sm text-gray-600">
+                    {nanny.rating} ({nanny.reviews} reviews)
+                  </span>
                 </div>
+                <div className="flex items-center justify-center mb-4">
+                  <MapPin className="w-4 h-4 text-gray-400" />
+                  <span className="ml-1 text-sm text-gray-600">{nanny.location}</span>
+                </div>
+                <div className="text-3xl font-bold text-green-600 mb-4">
+                  ${nanny.hourlyrate}/hour
+                </div>
+
+                {user?.userType === 'parent' && (
+                  <Button
+                    onClick={handleBookNow}
+                    className="w-full bg-green-600 hover:bg-green-700"
+                    size="lg"
+                  >
+                    <Heart className="w-4 h-4 mr-2" />
+                    Book Now
+                  </Button>
+                )}
+
+                {user?.userType === 'nanny' && (
+                  <div className="p-3 bg-blue-50 rounded-lg">
+                    <p className="text-sm text-blue-700">
+                      You're viewing this profile as a nanny. Only parents can book services.
+                    </p>
+                  </div>
+                )}
+
+                {!isAuthenticated && (
+                  <Button
+                    onClick={() => navigate('/login')}
+                    className="w-full bg-green-600 hover:bg-green-700"
+                    size="lg"
+                  >
+                    Login to Book
+                  </Button>
+                )}
               </CardContent>
             </Card>
           </div>
 
-          {/* Detailed Information */}
+          {/* Detailed Info */}
           <div className="md:col-span-2 space-y-6">
-            {/* About */}
             <Card>
               <CardHeader>
                 <CardTitle>About {nanny.name}</CardTitle>
@@ -148,7 +162,6 @@ export default function NannyProfile() {
               </CardContent>
             </Card>
 
-            {/* Experience & Skills */}
             <Card>
               <CardHeader>
                 <CardTitle>Experience & Skills</CardTitle>
@@ -161,7 +174,7 @@ export default function NannyProfile() {
                     <span className="text-gray-700">{nanny.experience} years of experience</span>
                   </div>
                 </div>
-                
+
                 <div>
                   <h4 className="font-semibold text-gray-900 mb-2">Age Groups</h4>
                   <div className="flex items-center">
@@ -173,45 +186,10 @@ export default function NannyProfile() {
                 <div>
                   <h4 className="font-semibold text-gray-900 mb-2">Skills</h4>
                   <div className="flex flex-wrap gap-2">
-                    {nanny.skills.map((skill, index) => (
-                      <Badge key={index} variant="secondary">
-                        {skill}
-                      </Badge>
+                    {nanny.skills.map((skill: string, index: number) => (
+                      <Badge key={index} variant="secondary">{skill}</Badge>
                     ))}
                   </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Availability */}
-            <Card>
-              <CardHeader>
-                <CardTitle>Availability</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-2 gap-4">
-                  {Object.entries(nanny.availability).map(([day, hours]) => (
-                    <div key={day} className="flex justify-between">
-                      <span className="font-medium capitalize">{day}:</span>
-                      <span className="text-gray-600">{hours}</span>
-                    </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Languages */}
-            <Card>
-              <CardHeader>
-                <CardTitle>Languages</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="flex flex-wrap gap-2">
-                  {nanny.languages.map((language, index) => (
-                    <Badge key={index} variant="outline">
-                      {language}
-                    </Badge>
-                  ))}
                 </div>
               </CardContent>
             </Card>
