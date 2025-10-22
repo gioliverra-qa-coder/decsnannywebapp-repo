@@ -9,8 +9,6 @@ obj/
 *.log
 logs/
 .env
-.env.local
-.env.production
 .env.development
 env/
 venv/
