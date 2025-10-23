@@ -104,7 +104,7 @@ export default function ProfileSetup() {
       }
 
       const { error } = await supabase.from('nannies').insert({
-        user_id: user.id,                 // <-- use user.id directly
+        user_id: user.id,                 // <-- use user.id directly as it's guaranteed to be defined here
         bio: nannyData.bio,
         experience: nannyData.experience,
         hourlyrate: Number(nannyData.hourlyrate),
