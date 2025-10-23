@@ -30,7 +30,7 @@ export default function Login() {
       const success = await login(formData.email, formData.password);
       if (success) {
         toast.success('Login successful!');
-        navigate('/profile');
+        navigate('/');
       } else {
         toast.error('Invalid email or password');
       }

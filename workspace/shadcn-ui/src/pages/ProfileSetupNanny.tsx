@@ -123,7 +123,7 @@ export default function ProfileSetupNanny() {
         toast.error('Error saving nanny profile.');
       } else {
         toast.success('Nanny profile saved successfully!');
-        navigate('/profile');
+        navigate('/');
       }
     } catch (err) {
       console.error('Unexpected error:', err);

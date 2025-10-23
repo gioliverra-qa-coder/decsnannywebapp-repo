@@ -90,7 +90,7 @@ export default function ProfileSetupParent() {
         toast.error('Error saving parent profile.');
       } else {
         toast.success('Parent profile saved successfully!');
-        navigate('/profile');
+        navigate('/');
       }
     } catch (err) {
       console.error('Unexpected error:', err);
