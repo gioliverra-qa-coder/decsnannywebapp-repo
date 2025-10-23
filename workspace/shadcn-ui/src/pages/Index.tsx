@@ -7,7 +7,7 @@ import { createClient } from '@supabase/supabase-js';
 import NannyCard from '../components/NannyCard';
 import { useAuth } from '../contexts/AuthContext';
 
-// Initialize Supabase
+// Initialize Supabase client
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL!;
 const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY!;
 const supabase = createClient(supabaseUrl, supabaseKey);
@@ -27,14 +27,9 @@ export default function Index() {
       }
 
       setLoading(true);
-      let table = '';
+      const table = user.userType === 'parent' ? 'nannies' : user.userType === 'nanny' ? 'parents' : null;
 
-      // Determine which table to fetch
-      if (user.userType === 'parent') {
-        table = 'nannies';
-      } else if (user.userType === 'nanny') {
-        table = 'parents';
-      } else {
+      if (!table) {
         setFeaturedProfiles([]);
         setLoading(false);
         return;
@@ -69,15 +64,17 @@ export default function Index() {
           >
             DecsNanny
           </h1>
+
           <div className="flex gap-2">
-            <Button
-              variant="ghost"
-              onClick={() => navigate('/nannies')}
-              disabled={!user}
-              title={!user ? 'Please sign in first' : 'Find Nannies'}
-            >
-              {user?.userType === 'parent' ? 'Find Nannies' : 'Find Parents'}
-            </Button>
+            {/* Only show Find button when logged in */}
+            {user && (
+              <Button
+                variant="ghost"
+                onClick={() => navigate('/nannies')}
+              >
+                {user.userType === 'parent' ? 'Find Nannies' : 'Find Parents'}
+              </Button>
+            )}
 
             {!user && (
               <Button variant="outline" onClick={() => navigate('/login')}>
@@ -111,14 +108,27 @@ export default function Index() {
             ? 'Find families looking for professional and caring nannies.'
             : 'Please sign in to see available nannies and parents.'}
         </p>
-        <Button
-          size="lg"
-          onClick={() => navigate('/nannies')}
-          className="bg-green-600 hover:bg-green-700"
-          disabled={!user}
-        >
-          {user?.userType === 'parent' ? 'Browse Nannies' : 'Browse Parents'}
-        </Button>
+
+        {/* Only show Browse button when logged in */}
+        {user && (
+          <Button
+            size="lg"
+            onClick={() => navigate('/nannies')}
+            className="bg-green-600 hover:bg-green-700"
+          >
+            {user.userType === 'parent' ? 'Browse Nannies' : 'Browse Parents'}
+          </Button>
+        )}
+
+        {!user && (
+          <Button
+            size="lg"
+            onClick={() => navigate('/login')}
+            className="bg-green-600 hover:bg-green-700"
+          >
+            Get Started
+          </Button>
+        )}
       </section>
 
       {/* Featured Profiles Section */}
@@ -126,9 +136,7 @@ export default function Index() {
         <section className="py-16 bg-white">
           <div className="max-w-6xl mx-auto">
             <h3 className="text-3xl font-bold text-center mb-12">
-              {user.userType === 'parent'
-                ? 'Featured Nannies'
-                : 'Featured Parents'}
+              {user.userType === 'parent' ? 'Featured Nannies' : 'Featured Parents'}
             </h3>
 
             {loading ? (
