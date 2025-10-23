@@ -7,6 +7,7 @@ import { createClient } from '@supabase/supabase-js';
 import NannyCard from '../components/NannyCard';
 import { useAuth } from '../contexts/AuthContext';
 
+
 // Initialize Supabase client
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL!;
 const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY!;
