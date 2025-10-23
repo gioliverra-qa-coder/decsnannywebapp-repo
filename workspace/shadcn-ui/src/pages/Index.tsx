@@ -14,32 +14,49 @@ const supabase = createClient(supabaseUrl, supabaseKey);
 
 export default function Index() {
   const navigate = useNavigate();
-  const { user } = useAuth(); // <-- get current user
-  const [featuredNannies, setFeaturedNannies] = useState<any[]>([]);
+  const { user } = useAuth();
+  const [featuredProfiles, setFeaturedProfiles] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    async function fetchFeaturedNannies() {
-      setLoading(true);
-      const { data, error } = await supabase
-        .from('nannies')
-        .select('*')
-        .limit(3)  // Top 3 nannies for featured section
-        .order('created_at', { ascending: false }); // newest first
-      if (error) {
-        console.error('Error fetching featured nannies:', error);
-      } else {
-        const cleanedData = (data || []).map(n => ({
-          ...n,
-          experience: Number(n.experience),
-          hourlyrate: Number(n.hourlyrate)
-        }));
-        setFeaturedNannies(cleanedData);
+    async function fetchProfiles() {
+      if (!user) {
+        setFeaturedProfiles([]);
+        setLoading(false);
+        return;
       }
+
+      setLoading(true);
+      let table = '';
+
+      // Determine which table to fetch
+      if (user.userType === 'parent') {
+        table = 'nannies';
+      } else if (user.userType === 'nanny') {
+        table = 'parents';
+      } else {
+        setFeaturedProfiles([]);
+        setLoading(false);
+        return;
+      }
+
+      const { data, error } = await supabase
+        .from(table)
+        .select('*')
+        .limit(3)
+        .order('created_at', { ascending: false });
+
+      if (error) {
+        console.error(`Error fetching ${table}:`, error);
+      } else {
+        setFeaturedProfiles(data || []);
+      }
+
       setLoading(false);
     }
-    fetchFeaturedNannies();
-  }, []);
+
+    fetchProfiles();
+  }, [user]);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-green-50 to-emerald-50 px-2 sm:px-4">
@@ -53,13 +70,13 @@ export default function Index() {
             DecsNanny
           </h1>
           <div className="flex gap-2">
-            <Button 
-              variant="ghost" 
+            <Button
+              variant="ghost"
               onClick={() => navigate('/nannies')}
-              disabled={!user} // disable if user not signed in
-              title={!user ? 'Please sign in first' : 'Find Nannies'} // optional tooltip
+              disabled={!user}
+              title={!user ? 'Please sign in first' : 'Find Nannies'}
             >
-              Find Nannies
+              {user?.userType === 'parent' ? 'Find Nannies' : 'Find Parents'}
             </Button>
 
             {!user && (
@@ -78,46 +95,84 @@ export default function Index() {
         </div>
       </header>
 
-      {/* Hero */}
+      {/* Hero Section */}
       <section className="py-20 text-center">
-        <h2 className="text-4xl font-bold mb-4">Find the Perfect Nanny for Your Family</h2>
+        <h2 className="text-4xl font-bold mb-4">
+          {user?.userType === 'parent'
+            ? 'Find the Perfect Nanny for Your Family'
+            : user?.userType === 'nanny'
+            ? 'Connect with Parents Looking for Great Nannies'
+            : 'Welcome to DecsNanny'}
+        </h2>
         <p className="text-lg text-gray-600 mb-8">
-          Connect with experienced, vetted nannies in your area.
+          {user?.userType === 'parent'
+            ? 'Connect with experienced, vetted nannies in your area.'
+            : user?.userType === 'nanny'
+            ? 'Find families looking for professional and caring nannies.'
+            : 'Please sign in to see available nannies and parents.'}
         </p>
-        <Button 
-          size="lg" 
-          onClick={() => navigate('/nannies')} 
+        <Button
+          size="lg"
+          onClick={() => navigate('/nannies')}
           className="bg-green-600 hover:bg-green-700"
           disabled={!user}
         >
-          Browse Nannies
+          {user?.userType === 'parent' ? 'Browse Nannies' : 'Browse Parents'}
         </Button>
       </section>
 
-      {/* Featured Nannies */}
-      <section className="py-16 bg-white">
-        <div className="max-w-6xl mx-auto">
-          <h3 className="text-3xl font-bold text-center mb-12">Featured Nannies</h3>
+      {/* Featured Profiles Section */}
+      {user && (
+        <section className="py-16 bg-white">
+          <div className="max-w-6xl mx-auto">
+            <h3 className="text-3xl font-bold text-center mb-12">
+              {user.userType === 'parent'
+                ? 'Featured Nannies'
+                : 'Featured Parents'}
+            </h3>
 
-          {loading ? (
-            <p className="text-center text-gray-500">Loading featured nannies...</p>
-          ) : featuredNannies.length === 0 ? (
-            <p className="text-center text-gray-500">No featured nannies found.</p>
-          ) : (
-            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {featuredNannies.map(nanny => <NannyCard key={nanny.id} nanny={nanny} />)}
-            </div>
-          )}
-        </div>
-      </section>
+            {loading ? (
+              <p className="text-center text-gray-500">Loading profiles...</p>
+            ) : featuredProfiles.length === 0 ? (
+              <p className="text-center text-gray-500">No profiles found.</p>
+            ) : (
+              <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {featuredProfiles.map((profile) => (
+                  <NannyCard key={profile.id} nanny={profile} />
+                ))}
+              </div>
+            )}
+          </div>
+        </section>
+      )}
 
       {/* Features Section */}
       <section className="py-16 bg-white">
         <div className="max-w-6xl mx-auto grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 text-center">
-          <Card><CardContent><Shield className="mx-auto mb-2 w-12 h-12 text-green-600" /><h4>Vetted Professionals</h4></CardContent></Card>
-          <Card><CardContent><Star className="mx-auto mb-2 w-12 h-12 text-yellow-500" /><h4>Highly Rated</h4></CardContent></Card>
-          <Card><CardContent><Clock className="mx-auto mb-2 w-12 h-12 text-emerald-600" /><h4>Flexible Scheduling</h4></CardContent></Card>
-          <Card><CardContent><Heart className="mx-auto mb-2 w-12 h-12 text-red-500" /><h4>Peace of Mind</h4></CardContent></Card>
+          <Card>
+            <CardContent>
+              <Shield className="mx-auto mb-2 w-12 h-12 text-green-600" />
+              <h4>Vetted Professionals</h4>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent>
+              <Star className="mx-auto mb-2 w-12 h-12 text-yellow-500" />
+              <h4>Highly Rated</h4>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent>
+              <Clock className="mx-auto mb-2 w-12 h-12 text-emerald-600" />
+              <h4>Flexible Scheduling</h4>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent>
+              <Heart className="mx-auto mb-2 w-12 h-12 text-red-500" />
+              <h4>Peace of Mind</h4>
+            </CardContent>
+          </Card>
         </div>
       </section>
     </div>
