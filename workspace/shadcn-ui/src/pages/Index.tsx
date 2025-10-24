@@ -7,7 +7,6 @@ import { createClient } from '@supabase/supabase-js';
 import NannyCard from '../components/NannyCard';
 import { useAuth } from '../contexts/AuthContext';
 
-
 // Initialize Supabase client
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL!;
 const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY!;
@@ -18,6 +17,14 @@ export default function Index() {
   const { user } = useAuth();
   const [featuredProfiles, setFeaturedProfiles] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+
+  const handleDashboardNavigation = () => {
+    if (user?.userType === 'nanny') {
+      navigate('/nanny-dashboard');
+    } else {
+      navigate('/bookings');
+    }
+  };
 
   useEffect(() => {
     async function fetchProfiles() {
@@ -65,9 +72,7 @@ export default function Index() {
           >
             DecsNanny
           </h1>
-
           <div className="flex gap-2">
-            {/* Only show Find button when logged in */}
             {!user && (
               <Button variant="outline" onClick={() => navigate('/login')}>
                 Sign In
@@ -89,33 +94,40 @@ export default function Index() {
           {user?.userType === 'parent'
             ? 'Find the Perfect Nanny for Your Family'
             : user?.userType === 'nanny'
-            ? 'Connect with Parents Looking for Great Nannies'
-            : 'Welcome to DecsNanny'}
+              ? 'Connect with Parents Looking for Great Nannies'
+              : 'Welcome to DecsNanny'}
         </h2>
         <p className="text-lg text-gray-600 mb-8">
           {user?.userType === 'parent'
             ? 'Connect with experienced, vetted nannies in your area.'
             : user?.userType === 'nanny'
-            ? 'Find families looking for professional and caring nannies.'
-            : 'Please sign in to see available nannies and parents.'}
+              ? 'Find families looking for professional and caring nannies.'
+              : 'Please sign in to see available nannies and parents.'}
         </p>
 
-        {/* Only show Browse button when logged in */}
-        {user && (
-          <Button
-            size="lg"
-            onClick={() => navigate('/nannies')}
-            className="bg-green-600 hover:bg-green-700"
-          >
-            {user.userType === 'parent' ? 'Browse Nannies' : 'Browse Parents'}
-          </Button>
-        )}
-
-        {!user && (
+        {/* Buttons */}
+        {user ? (
+          <div className="flex justify-center gap-4">
+            <Button
+              size="lg"
+              onClick={() => navigate(user.userType === 'parent' ? '/nannies' : '/parents')}
+              className="bg-green-600 hover:bg-green-700 transition-colors"
+            >
+              {user.userType === 'parent' ? 'Browse Nannies' : 'Browse Parents'}
+            </Button>
+            <Button
+              size="lg"
+              onClick={handleDashboardNavigation}
+              className="bg-green-600 hover:bg-green-700 transition-colors"
+            >
+              {user.userType === 'nanny' ? 'My Dashboard' : 'My Bookings'}
+            </Button>
+          </div>
+        ) : (
           <Button
             size="lg"
             onClick={() => navigate('/login')}
-            className="bg-green-600 hover:bg-green-700"
+            className="bg-green-600 hover:bg-green-700 transition-colors"
           >
             Get Started
           </Button>
