@@ -69,6 +69,28 @@ export default function BookingForm() {
     fetchNanny();
   }, [id, navigate]);
 
+  useEffect(() => {
+    async function fetchParentInfo() {
+      if (!user) return;
+      const { data } = await supabase
+        .from('parents')
+        .select('name, email, phone')
+        .eq('user_id', user.id)
+        .single();
+
+      if (data) {
+        setFormData((prev) => ({
+          ...prev,
+          name: data.name || '',
+          email: data.email || '',
+          phone: data.phone || '',
+        }));
+      }
+    }
+
+    fetchParentInfo();
+  }, [user]);
+
   if (!nanny) {
     return loading ? (
       <p className="text-center mt-10">Loading nanny details...</p>
@@ -86,42 +108,98 @@ export default function BookingForm() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formData.date || !formData.time || !formData.duration || !formData.name || !formData.email || !formData.phone) {
+
+    if (
+      !formData.date ||
+      !formData.time ||
+      !formData.duration ||
+      !formData.name ||
+      !formData.email ||
+      !formData.phone
+    ) {
       toast.error('Please fill in all required fields');
       return;
     }
 
     setSubmitting(true);
 
-    const booking = {
-      parent_id: user.id,
-      nanny_id: nanny.id,
-      nanny_name: nanny.name,
-      parent_name: formData.name,
-      date: format(formData.date, 'yyyy-MM-dd'),
-      start_time: formData.time,
-      end_time: `${parseInt(formData.time.split(':')[0]) + parseInt(formData.duration)}:${formData.time.split(':')[1]}`,
-      children: [],
-      special_instructions: formData.specialRequirements || null,
-      status: 'pending',
-      hourlyrate: nanny.hourlyrate,
-      total_amount: totalCost,
-      created_at: new Date().toISOString()
-    };
+    try {
+      // 🧩 1️⃣ Get the parent record (since parent_id references parents.id)
+      const { data: parentRecord, error: parentError } = await supabase
+        .from('parents')
+        .select('id, name')
+        .eq('user_id', user.id)
+        .single();
 
-    const { data, error } = await supabase.from('bookings').insert([booking]);
+      if (parentError || !parentRecord) {
+        toast.error('Parent profile not found');
+        setSubmitting(false);
+        return;
+      }
 
-    if (error) {
-      console.error('Error creating booking:', error);
-      toast.error('Failed to submit booking');
-    } else {
-      toast.success('Booking submitted successfully!');
-      navigate('/bookings');
+      // 🧩 2️⃣ Calculate time range
+      const startTime = formData.time;
+      const endHour = parseInt(startTime.split(':')[0]) + parseInt(formData.duration);
+      const endTime = `${endHour.toString().padStart(2, '0')}:${startTime.split(':')[1]}`;
+      const bookingDate = format(formData.date, 'yyyy-MM-dd');
+
+      // 🧩 3️⃣ Check for existing overlapping bookings for this nanny
+      const { data: existingBookings, error: checkError } = await supabase
+        .from('bookings')
+        .select('start_time, end_time')
+        .eq('nanny_id', nanny.id)
+        .eq('date', bookingDate)
+        .in('status', ['pending', 'confirmed']); // only block active bookings
+
+      if (checkError) {
+        console.error('Error checking existing bookings:', checkError);
+      }
+
+      const overlap = existingBookings?.some((b) => {
+        const existingStart = b.start_time;
+        const existingEnd = b.end_time;
+        return startTime < existingEnd && endTime > existingStart;
+      });
+
+      if (overlap) {
+        toast.error('This nanny is already booked during that time.');
+        setSubmitting(false);
+        return;
+      }
+
+      // 🧩 4️⃣ Build booking object
+      const bookingData = {
+        parent_id: parentRecord.id,
+        nanny_id: nanny.id,
+        nanny_name: nanny.name,
+        parent_name: parentRecord.name || formData.name,
+        date: bookingDate,
+        start_time: startTime,
+        end_time: endTime,
+        special_instructions: formData.specialRequirements || null,
+        status: 'pending',
+        hourlyrate: nanny.hourlyrate,
+        total_amount: totalCost,
+        created_at: new Date().toISOString(),
+      };
+
+      // 🧩 5️⃣ Insert booking
+      const { error } = await supabase.from('bookings').insert([bookingData]);
+
+      if (error) {
+        console.error('Error creating booking:', error);
+        toast.error('Failed to submit booking');
+      } else {
+        toast.success('Booking submitted successfully!');
+        navigate('/bookings');
+      }
+    } catch (err) {
+      console.error('Unexpected error:', err);
+      toast.error('Something went wrong');
+    } finally {
+      setSubmitting(false);
     }
-
-    setSubmitting(false);
   };
-
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
@@ -172,8 +250,8 @@ export default function BookingForm() {
                   <SelectTrigger><SelectValue placeholder="Select start time" /></SelectTrigger>
                   <SelectContent>
                     {Array.from({ length: 24 }, (_, i) => (
-                      <SelectItem key={i} value={`${i.toString().padStart(2,'0')}:00`}>
-                        {i.toString().padStart(2,'0')}:00
+                      <SelectItem key={i} value={`${i.toString().padStart(2, '0')}:00`}>
+                        {i.toString().padStart(2, '0')}:00
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -186,8 +264,8 @@ export default function BookingForm() {
                 <Select value={formData.duration} onValueChange={(value) => setFormData(prev => ({ ...prev, duration: value }))}>
                   <SelectTrigger><SelectValue placeholder="Select duration" /></SelectTrigger>
                   <SelectContent>
-                    {[1,2,3,4,5,6,7,8].map(h => (
-                      <SelectItem key={h} value={h.toString()}>{h} hour{h>1?'s':''}</SelectItem>
+                    {[1, 2, 3, 4, 5, 6, 7, 8].map(h => (
+                      <SelectItem key={h} value={h.toString()}>{h} hour{h > 1 ? 's' : ''}</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
@@ -197,10 +275,10 @@ export default function BookingForm() {
               <div className="space-y-4">
                 <Label>Full Name *</Label>
                 <Input value={formData.name} onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))} />
-                
+
                 <Label>Email *</Label>
                 <Input type="email" value={formData.email} onChange={(e) => setFormData(prev => ({ ...prev, email: e.target.value }))} />
-                
+
                 <Label>Phone *</Label>
                 <Input type="tel" value={formData.phone} onChange={(e) => setFormData(prev => ({ ...prev, phone: e.target.value }))} />
               </div>
