@@ -37,8 +37,8 @@ export default function Index() {
         user.userType === 'parent'
           ? 'parents'
           : user.userType === 'nanny'
-          ? 'nannies'
-          : null;
+            ? 'nannies'
+            : null;
       if (!table) return;
 
       const { data, error } = await supabase
@@ -71,8 +71,8 @@ export default function Index() {
         user.userType === 'parent'
           ? 'nannies'
           : user.userType === 'nanny'
-          ? 'parents'
-          : null;
+            ? 'parents'
+            : null;
 
       if (!table) {
         setFeaturedProfiles([]);
@@ -131,15 +131,15 @@ export default function Index() {
           {user?.userType === 'parent'
             ? 'Find the Perfect Nanny for Your Family'
             : user?.userType === 'nanny'
-            ? 'Connect with Parents Looking for Great Nannies'
-            : 'Welcome to DecsNanny'}
+              ? 'Connect with Parents Looking for Great Nannies'
+              : 'Welcome to DecsNanny'}
         </h2>
         <p className="text-lg text-gray-600 mb-8">
           {user?.userType === 'parent'
             ? 'Connect with experienced, vetted nannies in your area.'
             : user?.userType === 'nanny'
-            ? 'Find families looking for professional and caring nannies.'
-            : 'Please sign in to see available nannies and parents.'}
+              ? 'Find families looking for professional and caring nannies.'
+              : 'Please sign in to see available nannies and parents.'}
         </p>
 
         {/* Buttons */}
@@ -178,7 +178,9 @@ export default function Index() {
         <section className="py-16 bg-white">
           <div className="max-w-6xl mx-auto">
             <h3 className="text-3xl font-bold text-center mb-12">
-              {user.userType === 'parent' ? 'Nannies Recently Booked' : 'Parents Recently Booked'}
+              {user.userType === 'parent'
+                ? 'Nannies Recently Booked'
+                : 'Parents Recently Booked'}
             </h3>
 
             {loading ? (
@@ -187,9 +189,13 @@ export default function Index() {
               <p className="text-center text-gray-500">No profiles found.</p>
             ) : (
               <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {featuredProfiles.map((profile) => (
-                  <ParentCard key={profile.id} parent={profile} />
-                ))}
+                {user.userType === 'parent'
+                  ? featuredProfiles.map((profile) => (
+                    <NannyCard key={profile.id} nanny={profile} />
+                  ))
+                  : featuredProfiles.map((profile) => (
+                    <ParentCard key={profile.id} parent={profile} />
+                  ))}
               </div>
             )}
           </div>
