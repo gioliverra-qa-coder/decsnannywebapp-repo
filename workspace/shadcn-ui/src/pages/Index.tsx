@@ -68,21 +68,11 @@ export default function Index() {
 
           <div className="flex gap-2">
             {/* Only show Find button when logged in */}
-            {user && (
-              <Button
-                variant="ghost"
-                onClick={() => navigate('/nannies')}
-              >
-                {user.userType === 'parent' ? 'Find Nannies' : 'Find Parents'}
-              </Button>
-            )}
-
             {!user && (
               <Button variant="outline" onClick={() => navigate('/login')}>
                 Sign In
               </Button>
             )}
-
             {user && (
               <Button variant="ghost" onClick={() => navigate('/profile')}>
                 <User className="w-4 h-4 mr-1" />
