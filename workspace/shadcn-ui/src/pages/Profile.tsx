@@ -140,12 +140,12 @@ export default function Profile() {
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Profile Header */}
         <Card className="mb-8">
-          <CardContent className="p-8 flex flex-col md:flex-row gap-8">
+          <CardContent className="p-4 sm:p-6 md:p-8 flex flex-col md:flex-row gap-6 md:gap-8 items-center md:items-start">
             <div className="relative">
               <img
                 src={profileData.profile_image || 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=400&h=400&fit=crop&crop=face'}
                 alt={profileData.name}
-                className="w-32 h-32 rounded-full object-cover mx-auto md:mx-0 border border-gray-200"
+                className="w-24 h-24 sm:w-28 sm:h-28 md:w-32 md:h-32 rounded-full object-cover border border-gray-200"
               />
 
               <input
@@ -178,12 +178,12 @@ export default function Profile() {
                 </Badge>
               </div>
               <p className="text-gray-600 mb-4">{profileData.email}</p>
-              <div className="flex justify-center md:justify-start">
+              <div className="flex flex-wrap justify-center md:justify-start gap-2">
                 <Button
                   onClick={() => setIsEditing(!isEditing)}
                   variant={isEditing ? 'outline' : 'default'}
                   className={!isEditing ? 'bg-green-600 hover:bg-green-700' : ''}
-                  >
+                >
                   {isEditing ? (
                     <>
                       <X className="w-4 h-4 mr-2" /> Cancel
@@ -212,7 +212,7 @@ export default function Profile() {
           <TabsContent value="basic">
             <Card>
               <CardHeader><CardTitle>Basic Information</CardTitle></CardHeader>
-              <CardContent className="space-y-4">
+              <CardContent className="space-y-4 p-4 sm:p-6 md:p-8">
                 {isEditing ? (
                   <>
                     <div className="space-y-2">
@@ -250,7 +250,7 @@ export default function Profile() {
                     </Button>
                   </>
                 ) : (
-                  <div className="space-y-4">
+                  <div className="space-y-4 p-4 sm:p-6 md:p-8">
                     <div><Label>Full Name</Label><p className="text-lg">{profileData.name}</p></div>
                     <div><Label>Email</Label><p className="text-lg">{profileData.email}</p></div>
                     <div><Label>Phone</Label><p className="text-lg">{profileData.phone}</p></div>
@@ -261,211 +261,211 @@ export default function Profile() {
             </Card>
           </TabsContent>
 
-{/* Nanny Professional Info */}
-{user.userType === 'nanny' && (
-  <TabsContent value="professional">
-    <Card>
-      <CardHeader><CardTitle>Professional Information</CardTitle></CardHeader>
-      <CardContent className="space-y-4">
-        {isEditing ? (
-          <>
-            <div><Label>Bio</Label>
-              <Input
-                value={profileData.bio}
-                onChange={e => setProfileData(prev => ({ ...prev, bio: e.target.value }))}
-              />
-            </div>
-            <div><Label>Experience (years)</Label>
-              <Input
-                type="number"
-                value={profileData.experience}
-                onChange={e => setProfileData(prev => ({ ...prev, experience: e.target.value }))}
-              />
-            </div>
-            <div><Label>Hourly Rate</Label>
-              <Input
-                type="number"
-                value={profileData.hourlyrate}
-                onChange={e => setProfileData(prev => ({ ...prev, hourlyrate: e.target.value }))}
-              />
-            </div>
-            <div><Label>Location</Label>
-              <Input
-                value={profileData.location}
-                onChange={e => setProfileData(prev => ({ ...prev, location: e.target.value }))}
-              />
-            </div>
-
-            {/* --- Add Save Button Here --- */}
-            <Button
-              onClick={handleSave}
-              disabled={isLoading}
-              className="bg-green-600 hover:bg-green-700"
-            >
-              <Save className="w-4 h-4 mr-2" />
-              {isLoading ? 'Saving...' : 'Save Professional Info'}
-            </Button>
-          </>
-        ) : (
-          <>
-            <p><strong>Bio:</strong> {profileData.bio}</p>
-            <p><strong>Experience:</strong> {profileData.experience} years</p>
-            <p><strong>Hourly Rate:</strong> ${profileData.hourlyrate}/hr</p>
-            <p><strong>Location:</strong> {profileData.location}</p>
-          </>
-        )}
-      </CardContent>
-    </Card>
-  </TabsContent>
-)}
-
-{user.userType === 'parent' && (
-  <TabsContent value="family">
-    <Card>
-      <CardHeader>
-        <CardTitle>Family Information</CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-6">
-        {isEditing ? (
-          <>
-            {/* Address */}
-            <div className="space-y-2">
-              <Label htmlFor="address">Address</Label>
-              <Input
-                id="address"
-                value={profileData.address || ''}
-                onChange={(e) =>
-                  setProfileData((prev) => ({ ...prev, address: e.target.value }))
-                }
-              />
-            </div>
-
-            {/* Children Management */}
-            <div className="space-y-3">
-              <Label>Children</Label>
-              {profileData.children?.map((child: any, idx: number) => (
-                <div
-                  key={idx}
-                  className="flex items-center gap-3 bg-gray-50 p-3 rounded-lg"
-                >
-                  <Input
-                    placeholder="Child name"
-                    value={child.name}
-                    onChange={(e) => {
-                      const updated = [...profileData.children];
-                      updated[idx].name = e.target.value;
-                      setProfileData((prev) => ({ ...prev, children: updated }));
-                    }}
-                  />
-                  <Input
-                    placeholder="Age"
-                    type="number"
-                    className="w-24"
-                    value={child.age}
-                    onChange={(e) => {
-                      const updated = [...profileData.children];
-                      updated[idx].age = e.target.value;
-                      setProfileData((prev) => ({ ...prev, children: updated }));
-                    }}
-                  />
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    onClick={() => {
-                      const updated = profileData.children.filter(
-                        (_: any, i: number) => i !== idx
-                      );
-                      setProfileData((prev) => ({ ...prev, children: updated }));
-                    }}
-                  >
-                    <X className="w-4 h-4" />
-                  </Button>
-                </div>
-              ))}
-
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() =>
-                  setProfileData((prev) => ({
-                    ...prev,
-                    children: [...(prev.children || []), { name: '', age: '' }],
-                  }))
-                }
-              >
-                + Add Child
-              </Button>
-            </div>
-
-            {/* Save Changes */}
-            <Button
-              onClick={async () => {
-                setIsLoading(true);
-                const { error } = await supabase
-                  .from('parents')
-                  .update({
-                    address: profileData.address,
-                    children: profileData.children,
-                  })
-                  .eq('user_id', user.id);
-
-                setIsLoading(false);
-
-                if (error) {
-                  toast.error('Failed to update family info');
-                  console.error(error);
-                } else {
-                  toast.success('Family info updated!');
-                  setIsEditing(false);
-                }
-              }}
-              disabled={isLoading}
-              className="bg-green-600 hover:bg-green-700"
-            >
-              <Save className="w-4 h-4 mr-2" />
-              {isLoading ? 'Saving...' : 'Save Family Info'}
-            </Button>
-          </>
-        ) : (
-          <>
-            {/* Display Only */}
-            <div>
-              <Label>Address</Label>
-              <p className="text-lg">{profileData.address || '—'}</p>
-            </div>
-            <div>
-              <Label>Children</Label>
-              {profileData.children?.length ? (
-                <div className="space-y-2 mt-2">
-                  {profileData.children.map((child: any, idx: number) => (
-                    <div
-                      key={idx}
-                      className="flex items-center gap-4 p-3 bg-gray-50 rounded-lg"
-                    >
-                      <div>
-                        <p className="font-medium">{child.name}</p>
-                        <p className="text-sm text-gray-600">
-                          {child.age} years old
-                        </p>
+          {/* Nanny Professional Info */}
+          {user.userType === 'nanny' && (
+            <TabsContent value="professional">
+              <Card>
+                <CardHeader><CardTitle>Professional Information</CardTitle></CardHeader>
+                <CardContent className="space-y-4 p-4 sm:p-6 md:p-8">
+                  {isEditing ? (
+                    <>
+                      <div><Label>Bio</Label>
+                        <Input
+                          value={profileData.bio}
+                          onChange={e => setProfileData(prev => ({ ...prev, bio: e.target.value }))}
+                        />
                       </div>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <p className="text-gray-600 mt-2">No children added yet.</p>
-              )}
-            </div>
-          </>
-        )}
-      </CardContent>
-    </Card>
-  </TabsContent>
-)}
+                      <div><Label>Experience (years)</Label>
+                        <Input
+                          type="number"
+                          value={profileData.experience}
+                          onChange={e => setProfileData(prev => ({ ...prev, experience: e.target.value }))}
+                        />
+                      </div>
+                      <div><Label>Hourly Rate</Label>
+                        <Input
+                          type="number"
+                          value={profileData.hourlyrate}
+                          onChange={e => setProfileData(prev => ({ ...prev, hourlyrate: e.target.value }))}
+                        />
+                      </div>
+                      <div><Label>Location</Label>
+                        <Input
+                          value={profileData.location}
+                          onChange={e => setProfileData(prev => ({ ...prev, location: e.target.value }))}
+                        />
+                      </div>
+
+                      {/* --- Add Save Button Here --- */}
+                      <Button
+                        onClick={handleSave}
+                        disabled={isLoading}
+                        className="bg-green-600 hover:bg-green-700"
+                      >
+                        <Save className="w-4 h-4 mr-2" />
+                        {isLoading ? 'Saving...' : 'Save Professional Info'}
+                      </Button>
+                    </>
+                  ) : (
+                    <>
+                      <p><strong>Bio:</strong> {profileData.bio}</p>
+                      <p><strong>Experience:</strong> {profileData.experience} years</p>
+                      <p><strong>Hourly Rate:</strong> ${profileData.hourlyrate}/hr</p>
+                      <p><strong>Location:</strong> {profileData.location}</p>
+                    </>
+                  )}
+                </CardContent>
+              </Card>
+            </TabsContent>
+          )}
+
+          {user.userType === 'parent' && (
+            <TabsContent value="family">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Family Information</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-6 p-4 sm:p-6 md:p-8">
+                  {isEditing ? (
+                    <>
+                      {/* Address */}
+                      <div className="space-y-2">
+                        <Label htmlFor="address">Address</Label>
+                        <Input
+                          id="address"
+                          value={profileData.address || ''}
+                          onChange={(e) =>
+                            setProfileData((prev) => ({ ...prev, address: e.target.value }))
+                          }
+                        />
+                      </div>
+
+                      {/* Children Management */}
+                      <div className="space-y-3">
+                        <Label>Children</Label>
+                        {profileData.children?.map((child: any, idx: number) => (
+                          <div
+                            key={idx}
+                            className="flex items-center gap-3 bg-gray-50 p-3 rounded-lg"
+                          >
+                            <Input
+                              placeholder="Child name"
+                              value={child.name}
+                              onChange={(e) => {
+                                const updated = [...profileData.children];
+                                updated[idx].name = e.target.value;
+                                setProfileData((prev) => ({ ...prev, children: updated }));
+                              }}
+                            />
+                            <Input
+                              placeholder="Age"
+                              type="number"
+                              className="w-24"
+                              value={child.age}
+                              onChange={(e) => {
+                                const updated = [...profileData.children];
+                                updated[idx].age = e.target.value;
+                                setProfileData((prev) => ({ ...prev, children: updated }));
+                              }}
+                            />
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={() => {
+                                const updated = profileData.children.filter(
+                                  (_: any, i: number) => i !== idx
+                                );
+                                setProfileData((prev) => ({ ...prev, children: updated }));
+                              }}
+                            >
+                              <X className="w-4 h-4" />
+                            </Button>
+                          </div>
+                        ))}
+
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() =>
+                            setProfileData((prev) => ({
+                              ...prev,
+                              children: [...(prev.children || []), { name: '', age: '' }],
+                            }))
+                          }
+                        >
+                          + Add Child
+                        </Button>
+                      </div>
+
+                      {/* Save Changes */}
+                      <Button
+                        onClick={async () => {
+                          setIsLoading(true);
+                          const { error } = await supabase
+                            .from('parents')
+                            .update({
+                              address: profileData.address,
+                              children: profileData.children,
+                            })
+                            .eq('user_id', user.id);
+
+                          setIsLoading(false);
+
+                          if (error) {
+                            toast.error('Failed to update family info');
+                            console.error(error);
+                          } else {
+                            toast.success('Family info updated!');
+                            setIsEditing(false);
+                          }
+                        }}
+                        disabled={isLoading}
+                        className="bg-green-600 hover:bg-green-700"
+                      >
+                        <Save className="w-4 h-4 mr-2" />
+                        {isLoading ? 'Saving...' : 'Save Family Info'}
+                      </Button>
+                    </>
+                  ) : (
+                    <>
+                      {/* Display Only */}
+                      <div>
+                        <Label>Address</Label>
+                        <p className="text-lg">{profileData.address || '—'}</p>
+                      </div>
+                      <div>
+                        <Label>Children</Label>
+                        {profileData.children?.length ? (
+                          <div className="space-y-2 mt-2">
+                            {profileData.children.map((child: any, idx: number) => (
+                              <div
+                                key={idx}
+                                className="flex items-center gap-4 p-3 bg-gray-50 rounded-lg"
+                              >
+                                <div>
+                                  <p className="font-medium">{child.name}</p>
+                                  <p className="text-sm text-gray-600">
+                                    {child.age} years old
+                                  </p>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        ) : (
+                          <p className="text-gray-600 mt-2">No children added yet.</p>
+                        )}
+                      </div>
+                    </>
+                  )}
+                </CardContent>
+              </Card>
+            </TabsContent>
+          )}
           {/* Settings */}
           <TabsContent value="settings">
             <Card>
               <CardHeader><CardTitle>Account Settings</CardTitle></CardHeader>
-              <CardContent className="space-y-4">
+              <CardContent className="space-y-4 p-4 sm:p-6 md:p-8">
                 <Button variant="outline" className="w-full justify-start">Change Password</Button>
                 <Button variant="outline" className="w-full justify-start">Notification Preferences</Button>
                 <Button variant="outline" className="w-full justify-start">Privacy Settings</Button>
