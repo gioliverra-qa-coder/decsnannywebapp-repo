@@ -5,6 +5,7 @@ import { Star, Shield, Clock, Heart, User } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { createClient } from '@supabase/supabase-js';
 import NannyCard from '../components/NannyCard';
+import ParentCard from '../components/ParentCard';
 import { useAuth } from '../contexts/AuthContext';
 
 // Initialize Supabase client
@@ -15,6 +16,7 @@ const supabase = createClient(supabaseUrl, supabaseKey);
 export default function Index() {
   const navigate = useNavigate();
   const { user } = useAuth();
+  const [profile, setProfile] = useState<{ name: string } | null>(null);
   const [featuredProfiles, setFeaturedProfiles] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -26,6 +28,36 @@ export default function Index() {
     }
   };
 
+  // Fetch profile name from the appropriate table
+  useEffect(() => {
+    async function fetchProfile() {
+      if (!user) return;
+
+      const table =
+        user.userType === 'parent'
+          ? 'parents'
+          : user.userType === 'nanny'
+          ? 'nannies'
+          : null;
+      if (!table) return;
+
+      const { data, error } = await supabase
+        .from(table)
+        .select('name')
+        .eq('user_id', user.id)
+        .single();
+
+      if (error) {
+        console.error('Error fetching profile:', error);
+      } else {
+        setProfile(data);
+      }
+    }
+
+    fetchProfile();
+  }, [user]);
+
+  // Fetch featured profiles for browsing
   useEffect(() => {
     async function fetchProfiles() {
       if (!user) {
@@ -35,7 +67,12 @@ export default function Index() {
       }
 
       setLoading(true);
-      const table = user.userType === 'parent' ? 'nannies' : user.userType === 'nanny' ? 'parents' : null;
+      const table =
+        user.userType === 'parent'
+          ? 'nannies'
+          : user.userType === 'nanny'
+          ? 'parents'
+          : null;
 
       if (!table) {
         setFeaturedProfiles([]);
@@ -81,7 +118,7 @@ export default function Index() {
             {user && (
               <Button variant="ghost" onClick={() => navigate('/profile')}>
                 <User className="w-4 h-4 mr-1" />
-                {user.name}
+                {profile?.name || 'Profile'}
               </Button>
             )}
           </div>
@@ -94,15 +131,15 @@ export default function Index() {
           {user?.userType === 'parent'
             ? 'Find the Perfect Nanny for Your Family'
             : user?.userType === 'nanny'
-              ? 'Connect with Parents Looking for Great Nannies'
-              : 'Welcome to DecsNanny'}
+            ? 'Connect with Parents Looking for Great Nannies'
+            : 'Welcome to DecsNanny'}
         </h2>
         <p className="text-lg text-gray-600 mb-8">
           {user?.userType === 'parent'
             ? 'Connect with experienced, vetted nannies in your area.'
             : user?.userType === 'nanny'
-              ? 'Find families looking for professional and caring nannies.'
-              : 'Please sign in to see available nannies and parents.'}
+            ? 'Find families looking for professional and caring nannies.'
+            : 'Please sign in to see available nannies and parents.'}
         </p>
 
         {/* Buttons */}
@@ -110,7 +147,9 @@ export default function Index() {
           <div className="flex justify-center gap-4">
             <Button
               size="lg"
-              onClick={() => navigate(user.userType === 'parent' ? '/nannies' : '/parents')}
+              onClick={() =>
+                navigate(user.userType === 'parent' ? '/nannies' : '/parents')
+              }
               className="bg-green-600 hover:bg-green-700 transition-colors"
             >
               {user.userType === 'parent' ? 'Browse Nannies' : 'Browse Parents'}
@@ -139,7 +178,7 @@ export default function Index() {
         <section className="py-16 bg-white">
           <div className="max-w-6xl mx-auto">
             <h3 className="text-3xl font-bold text-center mb-12">
-              {user.userType === 'parent' ? 'Featured Nannies' : 'Featured Parents'}
+              {user.userType === 'parent' ? 'Nannies Recently Booked' : 'Parents Recently Booked'}
             </h3>
 
             {loading ? (
@@ -149,7 +188,7 @@ export default function Index() {
             ) : (
               <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {featuredProfiles.map((profile) => (
-                  <NannyCard key={profile.id} nanny={profile} />
+                  <ParentCard key={profile.id} parent={profile} />
                 ))}
               </div>
             )}
