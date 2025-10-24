@@ -162,8 +162,7 @@ export default function Profile() {
               <Button
                 size="sm"
                 className="absolute bottom-0 right-0 rounded-full w-8 h-8 p-0 bg-green-600 hover:bg-green-700"
-                onClick={() => document.getElementById('profileImageInput')?.click()}
-              >
+                onClick={() => document.getElementById('profileImageInput')?.click()}>
                 <Camera className="w-4 h-4" />
               </Button>
             </div>
@@ -178,16 +177,13 @@ export default function Profile() {
                   {user.userType === 'nanny' ? 'Nanny' : 'Parent'}
                 </Badge>
               </div>
-
               <p className="text-gray-600 mb-4">{profileData.email}</p>
-              <p className="text-gray-600 mb-6">{profileData.phone}</p>
-
               <div className="flex justify-center md:justify-start">
                 <Button
                   onClick={() => setIsEditing(!isEditing)}
                   variant={isEditing ? 'outline' : 'default'}
                   className={!isEditing ? 'bg-green-600 hover:bg-green-700' : ''}
-                >
+                  >
                   {isEditing ? (
                     <>
                       <X className="w-4 h-4 mr-2" /> Cancel

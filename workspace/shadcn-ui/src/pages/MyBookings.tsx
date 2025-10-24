@@ -79,8 +79,7 @@ export default function MyBookings() {
       {/* Header */}
       <header className="bg-white shadow-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex justify-between items-center">
-          <h1 className="text-2xl font-bold text-green-600 cursor-pointer" onClick={() => navigate('/')}>
-            DecsNanny
+          <h1 className="text-2xl font-bold text-green-600 cursor-pointer" onClick={() => navigate('/')}>DecsNanny
           </h1>
           <div className="flex items-center space-x-4">
             <Button variant="ghost" onClick={() => navigate('/nannies')}>
@@ -93,7 +92,6 @@ export default function MyBookings() {
           </div>
         </div>
       </header>
-
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="mb-8">
           <h1 className="text-3xl font-bold text-gray-900 mb-2">My Bookings</h1>
