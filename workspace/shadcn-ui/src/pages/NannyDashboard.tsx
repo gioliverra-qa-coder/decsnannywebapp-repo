@@ -21,7 +21,7 @@ export default function NannyDashboard() {
 
     setLoading(true);
 
-    // Get the nanny record
+    // 1️⃣ Get the nanny record (to match the correct nanny_id)
     const { data: nannyRecord, error: nannyError } = await supabase
       .from('nannies')
       .select('id')
@@ -35,10 +35,24 @@ export default function NannyDashboard() {
       return;
     }
 
-    // Fetch bookings for this nanny
+    // 2️⃣ Fetch bookings + join with parents table (get parent name and children)
     const { data, error } = await supabase
       .from('bookings')
-      .select('*')
+      .select(`
+        id,
+        date,
+        start_time,
+        end_time,
+        total_amount,
+        duration,
+        hourlyrate,
+        special_instructions,
+        status,
+        parent:parents (
+          name,
+          children
+        )
+      `)
       .eq('nanny_id', nannyRecord.id)
       .order('created_at', { ascending: false });
 
@@ -46,7 +60,13 @@ export default function NannyDashboard() {
       console.error('Error fetching bookings:', error);
       setBookings([]);
     } else {
-      setBookings(data);
+      // 3️⃣ Map parent name and children for easier access
+      const mappedBookings = data.map((b) => ({
+        ...b,
+        parentName: b.parent?.name || 'Unknown Parent',
+        children: b.parent?.children || [],
+      }));
+      setBookings(mappedBookings);
     }
 
     setLoading(false);
@@ -89,24 +109,30 @@ export default function NannyDashboard() {
   }, [user, navigate]);
 
   // Categorize bookings
-  const pendingBookings = bookings.filter(b => b.status === 'pending');
-  const acceptedBookings = bookings.filter(b => b.status === 'accepted');
-  const completedBookings = bookings.filter(b => b.status === 'completed');
-  const deliveredBookings = bookings.filter(b => b.status === 'delivered');
-  const totalEarnings = deliveredBookings.reduce((sum, b) => sum + b.total_amount, 0);
+  const pendingBookings = bookings.filter((b) => b.status === 'pending');
+  const acceptedBookings = bookings.filter((b) => b.status === 'accepted');
+  const completedBookings = bookings.filter((b) => b.status === 'completed');
+  const paidBookings = bookings.filter((b) => b.status === 'paid');
+  const totalEarnings = paidBookings.reduce((sum, b) => sum + (b.total_amount || 0), 0);
 
-  if (!user || user.userType !== 'nanny') return <div>Access denied. Please log in as a nanny.</div>;
+  if (!user || user.userType !== 'nanny')
+    return <div>Access denied. Please log in as a nanny.</div>;
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-green-50 to-emerald-50">
       {/* Header */}
       <header className="bg-white shadow-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex justify-between items-center">
-          <h1 className="text-2xl font-bold text-green-600 cursor-pointer hover:text-green-700 transition-colors" onClick={() => navigate('/')}>
+          <h1
+            className="text-2xl font-bold text-green-600 cursor-pointer hover:text-green-700 transition-colors"
+            onClick={() => navigate('/')}
+          >
             DecsNanny
           </h1>
           <div className="flex items-center space-x-4">
-            <Button variant="ghost" onClick={() => navigate('/nannies')}>Find Nannies</Button>
+            <Button variant="ghost" onClick={() => navigate('/nannies')}>
+              Find Nannies
+            </Button>
             <Button variant="ghost" onClick={() => navigate('/profile')}>
               <User className="w-4 h-4 mr-2" />
               {user?.name}
@@ -118,7 +144,9 @@ export default function NannyDashboard() {
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Welcome */}
         <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">Welcome back, {user.name}!</h1>
+          <h1 className="text-3xl font-bold text-gray-900 mb-2">
+            Welcome back, {user.name}!
+          </h1>
           <p className="text-gray-600">Manage your bookings and track your earnings</p>
         </div>
 
@@ -130,7 +158,9 @@ export default function NannyDashboard() {
               <Clock className="h-4 w-4 text-yellow-600" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-yellow-600">{pendingBookings.length}</div>
+              <div className="text-2xl font-bold text-yellow-600">
+                {pendingBookings.length}
+              </div>
             </CardContent>
           </Card>
 
@@ -140,7 +170,9 @@ export default function NannyDashboard() {
               <Calendar className="h-4 w-4 text-green-600" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-green-600">{acceptedBookings.length}</div>
+              <div className="text-2xl font-bold text-green-600">
+                {acceptedBookings.length}
+              </div>
             </CardContent>
           </Card>
 
@@ -150,17 +182,21 @@ export default function NannyDashboard() {
               <Star className="h-4 w-4 text-blue-600" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-blue-600">{completedBookings.length}</div>
+              <div className="text-2xl font-bold text-blue-600">
+                {completedBookings.length}
+              </div>
             </CardContent>
           </Card>
 
           <Card>
             <CardHeader className="flex justify-between pb-2">
-              <CardTitle className="text-sm font-medium">Delivered Services</CardTitle>
+              <CardTitle className="text-sm font-medium">Paid Services</CardTitle>
               <Package className="h-4 w-4 text-purple-600" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-purple-600">{deliveredBookings.length}</div>
+              <div className="text-2xl font-bold text-purple-600">
+                {paidBookings.length}
+              </div>
             </CardContent>
           </Card>
 
@@ -170,7 +206,9 @@ export default function NannyDashboard() {
               <DollarSign className="h-4 w-4 text-emerald-600" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-emerald-600">${totalEarnings}</div>
+              <div className="text-2xl font-bold text-emerald-600">
+                ${totalEarnings}
+              </div>
             </CardContent>
           </Card>
         </div>
@@ -179,10 +217,10 @@ export default function NannyDashboard() {
         {[
           { title: 'Pending Requests', list: pendingBookings, icon: Clock, action: 'pending' },
           { title: 'Accepted Bookings', list: acceptedBookings, icon: Calendar, action: 'accepted' },
-          { title: 'Completed - Ready for Delivery', list: completedBookings, icon: Star, action: 'completed' },
-          { title: 'Delivered Services', list: deliveredBookings, icon: Package, action: 'delivered' },
-        ].map(({ title, list, icon: Icon, action }) => (
-          list.length > 0 && (
+          { title: 'Completed - Ready for Payment', list: completedBookings, icon: Star, action: 'completed' },
+          { title: 'Paid Services', list: paidBookings, icon: Package, action: 'paid' },
+        ].map(({ title, list, icon: Icon, action }) =>
+          list.length > 0 ? (
             <div key={action} className="mb-8">
               <h2 className="text-2xl font-semibold text-gray-900 mb-4 flex items-center gap-2">
                 <Icon className="w-6 h-6 text-gray-700" />
@@ -197,19 +235,22 @@ export default function NannyDashboard() {
                     onAccept={() => updateBookingStatus(booking.id, 'accepted')}
                     onDecline={() => updateBookingStatus(booking.id, 'declined')}
                     onMarkCompleted={() => updateBookingStatus(booking.id, 'completed')}
-                    onMarkDelivered={() => updateBookingStatus(booking.id, 'delivered')}
+                    onMarkPaid={() => updateBookingStatus(booking.id, 'paid')}
                   />
                 ))}
               </div>
             </div>
-          )
-        ))}
+          ) : null
+        )}
 
+        {/* Empty State */}
         {bookings.length === 0 && !loading && (
           <Card className="text-center py-12">
             <CardContent>
               <Calendar className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-              <h3 className="text-xl font-semibold text-gray-900 mb-2">No bookings yet</h3>
+              <h3 className="text-xl font-semibold text-gray-900 mb-2">
+                No bookings yet
+              </h3>
               <p className="text-gray-600 mb-6">
                 When families book your services, they'll appear here for you to manage.
               </p>

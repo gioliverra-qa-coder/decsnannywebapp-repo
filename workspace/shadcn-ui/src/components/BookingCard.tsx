@@ -1,7 +1,7 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Calendar, Clock, MapPin, User, CheckCircle, XCircle, Package, Star } from 'lucide-react';
+import { Calendar, Clock, User, CheckCircle, XCircle, Package, Star } from 'lucide-react';
 import { Booking } from '../types/user';
 import { useAuth } from '../contexts/AuthContext';
 
@@ -10,10 +10,16 @@ interface BookingCardProps {
   onAccept?: (bookingId: string) => void;
   onDecline?: (bookingId: string) => void;
   onMarkCompleted?: (bookingId: string) => void;
-  onMarkDelivered?: (bookingId: string) => void;
+  onMarkPaid?: (bookingId: string) => void;
 }
 
-export default function BookingCard({ booking, onAccept, onDecline, onMarkCompleted, onMarkDelivered }: BookingCardProps) {
+export default function BookingCard({
+  booking,
+  onAccept,
+  onDecline,
+  onMarkCompleted,
+  onMarkPaid
+}: BookingCardProps) {
   const { user } = useAuth();
   const isNanny = user?.userType === 'nanny';
 
@@ -27,7 +33,7 @@ export default function BookingCard({ booking, onAccept, onDecline, onMarkComple
         return 'bg-red-100 text-red-800';
       case 'completed':
         return 'bg-blue-100 text-blue-800';
-      case 'delivered':
+      case 'paid':
         return 'bg-purple-100 text-purple-800';
       default:
         return 'bg-gray-100 text-gray-800';
@@ -42,33 +48,34 @@ export default function BookingCard({ booking, onAccept, onDecline, onMarkComple
         return <XCircle className="w-4 h-4" />;
       case 'completed':
         return <Star className="w-4 h-4" />;
-      case 'delivered':
+      case 'paid':
         return <Package className="w-4 h-4" />;
       default:
         return null;
     }
   };
 
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('en-US', {
+  const formatDate = (dateString: string) =>
+    new Date(dateString).toLocaleDateString('en-US', {
       weekday: 'long',
       year: 'numeric',
       month: 'long',
       day: 'numeric'
     });
-  };
 
   const canMarkCompleted = isNanny && booking.status === 'accepted';
-  const canMarkDelivered = isNanny && booking.status === 'completed';
+  const canMarkPaid = isNanny && booking.status === 'completed';
   const showCompletedButton = canMarkCompleted && onMarkCompleted;
-  const showDeliveredButton = canMarkDelivered && onMarkDelivered;
+  const showPaidButton = canMarkPaid && onMarkPaid;
 
   return (
     <Card className="w-full">
       <CardHeader>
         <div className="flex justify-between items-start">
           <CardTitle className="text-lg">
-            {isNanny ? `Booking with ${booking.parentName}` : `Booking with ${booking.nannyName}`}
+            {isNanny
+              ? `Booking with ${booking.parent?.name || booking.parentName || 'Unknown Parent'}`
+              : `Booking with ${booking.nannyName || 'Unknown Nanny'}`}
           </CardTitle>
           <Badge className={`${getStatusColor(booking.status)} flex items-center gap-1`}>
             {getStatusIcon(booking.status)}
@@ -76,7 +83,9 @@ export default function BookingCard({ booking, onAccept, onDecline, onMarkComple
           </Badge>
         </div>
       </CardHeader>
+
       <CardContent className="space-y-4">
+        {/* Booking Details */}
         <div className="grid grid-cols-2 gap-4">
           <div className="flex items-center space-x-2">
             <Calendar className="w-4 h-4 text-gray-500" />
@@ -84,27 +93,36 @@ export default function BookingCard({ booking, onAccept, onDecline, onMarkComple
           </div>
           <div className="flex items-center space-x-2">
             <Clock className="w-4 h-4 text-gray-500" />
-            <span className="text-sm">{booking.startTime} - {booking.endTime}</span>
+            <span className="text-sm">
+              {booking.startTime || booking.start_time} - {booking.endTime || booking.end_time}
+            </span>
           </div>
         </div>
 
-        <div className="space-y-2">
-          <div className="flex items-center space-x-2">
-            <User className="w-4 h-4 text-gray-500" />
-            <span className="text-sm font-medium">Children:</span>
-          </div>
-          <div className="ml-6 space-y-1">
-            {(booking.children || []).map((child, index) => (
-              <div key={index} className="text-sm text-gray-600">
-                {typeof child === 'string' ? child : `${child.name} (${child.age} years old)`}
-                {typeof child === 'object' && child.specialNeeds && (
-                  <span className="text-orange-600 ml-2">• {child.specialNeeds}</span>
-                )}
-              </div>
-            ))}
-          </div>
-        </div>
+        {/* Children Section */}
+        {booking.children && booking.children.length > 0 && (
+          <div className="space-y-2">
+            <div className="flex items-center space-x-2">
+              <User className="w-4 h-4 text-gray-500" />
+              <span className="text-sm font-medium">Children:</span>
+            </div>
+            <div className="ml-6 space-y-1">
+              {booking.children.map((child: any, index: number) => (
+                <div key={index} className="text-sm text-gray-600">
+                  {typeof child === 'string'
+                    ? child
+                    : `${child.name || 'Unnamed'} (${child.age || '?'} years old)`}
 
+                  {child.specialNeeds && (
+                    <span className="text-orange-600 ml-2">• {child.specialNeeds}</span>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Special Instructions */}
         {booking.specialInstructions && (
           <div className="space-y-2">
             <span className="text-sm font-medium">Special Instructions:</span>
@@ -114,22 +132,24 @@ export default function BookingCard({ booking, onAccept, onDecline, onMarkComple
           </div>
         )}
 
+        {/* Pricing */}
         <div className="flex justify-between items-center pt-2 border-t">
-          <span className="font-semibold text-lg">${booking.totalAmount}</span>
-          <span className="text-sm text-gray-500">${booking.hourlyRate}/hour</span>
+          <span className="font-semibold text-lg">${booking.total_amount}</span>
+          <span className="text-sm text-gray-500">${booking.hourlyrate}/hour</span>
         </div>
 
+        {/* Buttons */}
         {booking.status === 'pending' && isNanny && onAccept && onDecline && (
           <div className="flex space-x-2 pt-2">
-            <Button 
-              onClick={() => onAccept(booking.id)} 
+            <Button
+              onClick={() => onAccept(booking.id)}
               className="flex-1 bg-green-600 hover:bg-green-700"
             >
               Accept
             </Button>
-            <Button 
-              onClick={() => onDecline(booking.id)} 
-              variant="outline" 
+            <Button
+              onClick={() => onDecline(booking.id)}
+              variant="outline"
               className="flex-1 border-red-300 text-red-600 hover:bg-red-50"
             >
               Decline
@@ -139,8 +159,8 @@ export default function BookingCard({ booking, onAccept, onDecline, onMarkComple
 
         {showCompletedButton && (
           <div className="pt-2">
-            <Button 
-              onClick={() => onMarkCompleted(booking.id)} 
+            <Button
+              onClick={() => onMarkCompleted(booking.id)}
               className="w-full bg-blue-600 hover:bg-blue-700 flex items-center justify-center gap-2"
             >
               <Star className="w-4 h-4" />
@@ -149,14 +169,14 @@ export default function BookingCard({ booking, onAccept, onDecline, onMarkComple
           </div>
         )}
 
-        {showDeliveredButton && (
+        {showPaidButton && (
           <div className="pt-2">
-            <Button 
-              onClick={() => onMarkDelivered(booking.id)} 
+            <Button
+              onClick={() => onMarkPaid(booking.id)}
               className="w-full bg-purple-600 hover:bg-purple-700 flex items-center justify-center gap-2"
             >
               <Package className="w-4 h-4" />
-              Mark as Delivered
+              Mark as Paid
             </Button>
           </div>
         )}

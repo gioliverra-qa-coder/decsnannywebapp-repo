@@ -1,4 +1,3 @@
-// src/pages/MyBookings.tsx
 import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -15,10 +14,9 @@ export default function MyBookings() {
   const [bookings, setBookings] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // Fetch bookings for the parent
+  // Fetch bookings for the logged-in parent
   const fetchBookings = async () => {
     if (!user) return;
-
     setLoading(true);
 
     const { data: parentRecord, error: parentError } = await supabase
@@ -50,7 +48,6 @@ export default function MyBookings() {
     setLoading(false);
   };
 
-  // Update booking status
   const handleStatusUpdate = async (bookingId: string, newStatus: string) => {
     const { error } = await supabase
       .from('bookings')
@@ -58,7 +55,6 @@ export default function MyBookings() {
       .eq('id', bookingId);
 
     if (error) {
-      console.error('Error updating status:', error);
       toast.error('Failed to update booking status');
     } else {
       toast.success(`Booking marked as ${newStatus}`);
@@ -88,12 +84,12 @@ export default function MyBookings() {
 
   // Group bookings by status
   const groupedBookings: Record<string, any[]> = {
-    pending: bookings.filter((b) => b.status === 'pending'),
-    accepted: bookings.filter((b) => b.status === 'accepted'),
-    completed: bookings.filter((b) => b.status === 'completed'),
-    delivered: bookings.filter((b) => b.status === 'delivered'),
-    declined: bookings.filter((b) => b.status === 'declined'),
-    cancelled: bookings.filter((b) => b.status === 'cancelled'),
+    pending: bookings.filter(b => b.status === 'pending'),
+    accepted: bookings.filter(b => b.status === 'accepted'),
+    completed: bookings.filter(b => b.status === 'completed'),
+    paid: bookings.filter(b => b.status === 'paid'),
+    declined: bookings.filter(b => b.status === 'declined'),
+    cancelled: bookings.filter(b => b.status === 'cancelled'),
   };
 
   if (!user || user.userType !== 'parent') {
@@ -105,16 +101,11 @@ export default function MyBookings() {
       {/* Header */}
       <header className="bg-white shadow-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex justify-between items-center">
-          <h1
-            className="text-2xl font-bold text-green-600 cursor-pointer"
-            onClick={() => navigate('/')}
-          >
+          <h1 className="text-2xl font-bold text-green-600 cursor-pointer" onClick={() => navigate('/')}>
             DecsNanny
           </h1>
           <div className="flex items-center space-x-4">
-            <Button variant="ghost" onClick={() => navigate('/nannies')}>
-              Find Nannies
-            </Button>
+            <Button variant="ghost" onClick={() => navigate('/nannies')}>Find Nannies</Button>
             <Button variant="ghost" onClick={() => navigate('/profile')}>
               <User className="w-4 h-4 mr-2" />
               {user?.name}
@@ -124,12 +115,11 @@ export default function MyBookings() {
       </header>
 
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {/* Welcome */}
         <div className="mb-8">
           <h1 className="text-3xl font-bold text-gray-900 mb-2">My Bookings</h1>
           <p className="text-gray-600">Track all your nanny booking requests and their status</p>
-          <p className="text-sm text-gray-500 mt-2">
-            User ID: {user.id} | Total bookings found: {bookings.length}
-          </p>
+          <p className="text-sm text-gray-500 mt-2">Total bookings: {bookings.length}</p>
         </div>
 
         {/* Stats Cards */}
@@ -139,7 +129,7 @@ export default function MyBookings() {
               pending: 'yellow',
               accepted: 'green',
               completed: 'blue',
-              delivered: 'purple',
+              paid: 'purple',
               declined: 'red',
               cancelled: 'gray',
             };
@@ -176,15 +166,14 @@ export default function MyBookings() {
         )}
 
         {/* Booking Lists */}
-        {(['pending', 'accepted', 'completed', 'delivered', 'declined', 'cancelled'] as const).map((status) => {
+        {(['pending', 'accepted', 'completed', 'paid', 'declined', 'cancelled'] as const).map(status => {
           const list = groupedBookings[status];
           if (!list || list.length === 0) return null;
-
-          const colors: Record<string,string> = {
+          const colors: Record<string, string> = {
             pending: 'yellow',
             accepted: 'green',
             completed: 'blue',
-            delivered: 'purple',
+            paid: 'purple',
             declined: 'red',
             cancelled: 'gray',
           };
@@ -198,8 +187,12 @@ export default function MyBookings() {
                 </Badge>
               </h2>
               <div className="grid gap-4">
-                {list.map((booking) => (
-                  <BookingCard key={booking.id} booking={booking} onUpdateStatus={handleStatusUpdate} />
+                {list.map(booking => (
+                  <BookingCardInner
+                    key={booking.id}
+                    booking={booking}
+                    onUpdateStatus={handleStatusUpdate}
+                  />
                 ))}
               </div>
             </div>
@@ -210,8 +203,8 @@ export default function MyBookings() {
   );
 }
 
-// Inline BookingCard component with Cancel & Rebook buttons
-function BookingCard({
+// Inner BookingCard component with Cancel & Rebook buttons
+function BookingCardInner({
   booking,
   onUpdateStatus,
 }: {
@@ -242,7 +235,7 @@ function BookingCard({
               ? 'bg-green-100 text-green-800'
               : booking.status === 'completed'
               ? 'bg-blue-100 text-blue-800'
-              : booking.status === 'delivered'
+              : booking.status === 'paid'
               ? 'bg-purple-100 text-purple-800'
               : booking.status === 'declined'
               ? 'bg-red-100 text-red-800'
@@ -261,24 +254,14 @@ function BookingCard({
         {booking.special_instructions && <p>Notes: {booking.special_instructions}</p>}
 
         <div className="flex gap-2 mt-4 flex-wrap">
-          {booking.status === 'accepted' && (
-            <Button size="sm" onClick={() => onUpdateStatus(booking.id, 'completed')}>
-              Mark as Completed
-            </Button>
-          )}
-          {booking.status === 'completed' && (
-            <>
-              <Button size="sm" onClick={() => onUpdateStatus(booking.id, 'delivered')}>
-                Mark as Delivered
-              </Button>
-              <Button size="sm" variant="secondary" onClick={handleRebook}>
-                Rebook
-              </Button>
-            </>
-          )}
           {(booking.status === 'pending' || booking.status === 'accepted') && (
             <Button size="sm" variant="destructive" onClick={handleCancel}>
               Cancel Booking
+            </Button>
+          )}
+          {booking.status === 'completed' && (
+            <Button size="sm" variant="secondary" onClick={handleRebook}>
+              Rebook
             </Button>
           )}
         </div>
