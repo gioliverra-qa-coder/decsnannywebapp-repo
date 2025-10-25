@@ -120,9 +120,6 @@ export default function NannyDashboard() {
             DecsNanny
           </h1>
           <div className="flex items-center flex-wrap justify-center gap-2 sm:gap-4">
-            <Button variant="ghost" onClick={() => navigate('/nannies')} size="sm">
-              Find Nannies
-            </Button>
             <Button variant="ghost" onClick={() => navigate('/profile')} size="sm">
               <User className="w-4 h-4 mr-2" />
               {user?.name}
