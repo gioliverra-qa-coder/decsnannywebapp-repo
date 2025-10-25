@@ -28,17 +28,13 @@ export default function Index() {
     }
   };
 
-  // Fetch profile name from the appropriate table
+  // Fetch profile name
   useEffect(() => {
     async function fetchProfile() {
       if (!user) return;
 
       const table =
-        user.userType === 'parent'
-          ? 'parents'
-          : user.userType === 'nanny'
-            ? 'nannies'
-            : null;
+        user.userType === 'parent' ? 'parents' : user.userType === 'nanny' ? 'nannies' : null;
       if (!table) return;
 
       const { data, error } = await supabase
@@ -47,19 +43,15 @@ export default function Index() {
         .eq('user_id', user.id)
         .single();
 
-      if (error) {
-        console.error('Error fetching profile:', error);
-      } else {
-        setProfile(data);
-      }
+      if (!error && data) setProfile(data);
     }
 
     fetchProfile();
   }, [user]);
 
-  // Fetch featured profiles for browsing
+  // Fetch recently booked profiles
   useEffect(() => {
-    async function fetchProfiles() {
+    async function fetchRecentlyBooked() {
       if (!user) {
         setFeaturedProfiles([]);
         setLoading(false);
@@ -67,35 +59,69 @@ export default function Index() {
       }
 
       setLoading(true);
-      const table =
-        user.userType === 'parent'
-          ? 'nannies'
-          : user.userType === 'nanny'
-            ? 'parents'
-            : null;
 
-      if (!table) {
-        setFeaturedProfiles([]);
-        setLoading(false);
-        return;
-      }
+      if (user.userType === 'parent') {
+        // Get parent record
+        const { data: parentRecord } = await supabase
+          .from('parents')
+          .select('id')
+          .eq('user_id', user.id)
+          .single();
 
-      const { data, error } = await supabase
-        .from(table)
-        .select('*')
-        .limit(3)
-        .order('created_at', { ascending: false });
+        if (!parentRecord) {
+          setFeaturedProfiles([]);
+          setLoading(false);
+          return;
+        }
 
-      if (error) {
-        console.error(`Error fetching ${table}:`, error);
-      } else {
-        setFeaturedProfiles(data || []);
+        // Fetch nannies this parent booked
+        const { data, error } = await supabase
+          .from('bookings')
+          .select('nanny: nannies(*)')
+          .eq('parent_id', parentRecord.id)
+          .order('created_at', { ascending: false })
+          .limit(3);
+
+        if (!error && data) {
+          const nannies = data.map((b: any) => b.nanny).filter(Boolean);
+          setFeaturedProfiles(nannies);
+        } else {
+          setFeaturedProfiles([]);
+        }
+      } else if (user.userType === 'nanny') {
+        // Get nanny record
+        const { data: nannyRecord } = await supabase
+          .from('nannies')
+          .select('id')
+          .eq('user_id', user.id)
+          .single();
+
+        if (!nannyRecord) {
+          setFeaturedProfiles([]);
+          setLoading(false);
+          return;
+        }
+
+        // Fetch parents who booked this nanny
+        const { data, error } = await supabase
+          .from('bookings')
+          .select('parent: parents(*)')
+          .eq('nanny_id', nannyRecord.id)
+          .order('created_at', { ascending: false })
+          .limit(3);
+
+        if (!error && data) {
+          const parents = data.map((b: any) => b.parent).filter(Boolean);
+          setFeaturedProfiles(parents);
+        } else {
+          setFeaturedProfiles([]);
+        }
       }
 
       setLoading(false);
     }
 
-    fetchProfiles();
+    fetchRecentlyBooked();
   }, [user]);
 
   return (
@@ -104,7 +130,7 @@ export default function Index() {
       <header className="bg-white shadow-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex justify-between items-center">
           <h1
-            className="text-2xl font-bold text-green-600 cursor-pointer"
+            className="text-2xl font-bold text-green-600 cursor-pointer hover:text-green-700 transition-colors"
             onClick={() => navigate('/')}
           >
             DecsNanny
@@ -131,15 +157,15 @@ export default function Index() {
           {user?.userType === 'parent'
             ? 'Find the Perfect Nanny for Your Family'
             : user?.userType === 'nanny'
-              ? 'Connect with Parents Looking for Great Nannies'
-              : 'Welcome to DecsNanny'}
+            ? 'Connect with Parents Looking for Great Nannies'
+            : 'Welcome to DecsNanny'}
         </h2>
         <p className="text-lg text-gray-600 mb-8">
           {user?.userType === 'parent'
             ? 'Connect with experienced, vetted nannies in your area.'
             : user?.userType === 'nanny'
-              ? 'Find families looking for professional and caring nannies.'
-              : 'Please sign in to see available nannies and parents.'}
+            ? 'View parents who booked your services recently.'
+            : 'Please sign in to see available nannies and parents.'}
         </p>
 
         {/* Buttons */}
@@ -154,7 +180,6 @@ export default function Index() {
                 Browse Nannies
               </Button>
             )}
-
             <Button
               size="lg"
               onClick={handleDashboardNavigation}
@@ -174,7 +199,7 @@ export default function Index() {
         )}
       </section>
 
-      {/* Featured Profiles Section */}
+      {/* Featured Profiles */}
       {user && (
         <section className="py-16 bg-white">
           <div className="max-w-6xl mx-auto">
@@ -192,11 +217,11 @@ export default function Index() {
               <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {user.userType === 'parent'
                   ? featuredProfiles.map((profile) => (
-                    <NannyCard key={profile.id} nanny={profile} />
-                  ))
+                      <NannyCard key={profile.id} nanny={profile} />
+                    ))
                   : featuredProfiles.map((profile) => (
-                    <ParentCard key={profile.id} parent={profile} />
-                  ))}
+                      <ParentCard key={profile.id} parent={profile} />
+                    ))}
               </div>
             )}
           </div>
