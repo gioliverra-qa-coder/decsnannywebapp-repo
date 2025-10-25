@@ -145,15 +145,16 @@ export default function Index() {
         {/* Buttons */}
         {user ? (
           <div className="flex justify-center gap-4">
-            <Button
-              size="lg"
-              onClick={() =>
-                navigate(user.userType === 'parent' ? '/nannies' : '/parents')
-              }
-              className="bg-green-600 hover:bg-green-700 transition-colors"
-            >
-              {user.userType === 'parent' ? 'Browse Nannies' : 'Browse Parents'}
-            </Button>
+            {user.userType === 'parent' && (
+              <Button
+                size="lg"
+                onClick={() => navigate('/nannies')}
+                className="bg-green-600 hover:bg-green-700 transition-colors"
+              >
+                Browse Nannies
+              </Button>
+            )}
+
             <Button
               size="lg"
               onClick={handleDashboardNavigation}
