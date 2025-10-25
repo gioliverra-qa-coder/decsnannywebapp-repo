@@ -55,6 +55,7 @@ export default function ParentCard({ parent }: ParentCardProps) {
           </div>
         </div>
       </CardHeader>
+      
 
       <CardContent className="space-y-4">
         <div className="flex items-center justify-between text-sm">
@@ -63,7 +64,6 @@ export default function ParentCard({ parent }: ParentCardProps) {
             <span>{parent.address}</span>
           </div>
         </div>
-
       </CardContent>
     </Card>
   );
