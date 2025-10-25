@@ -60,7 +60,7 @@ export default function ParentCard({ parent }: ParentCardProps) {
         <div className="flex items-center justify-between text-sm">
           <div className="flex items-center gap-1">
             <MapPin className="w-4 h-4 text-gray-500" />
-            <span>{parent.location}</span>
+            <span>{parent.address}</span>
           </div>
         </div>
 
