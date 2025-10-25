@@ -112,9 +112,6 @@ export default function NannyCard({ nanny }: NannyCardProps) {
         </div>
 
         <div className="flex gap-2 pt-2">
-          <Button variant="outline" size="sm" onClick={handleViewProfile} className="flex-1">
-            View Profile
-          </Button>
           <Button size="sm" onClick={handleBookNow} className="flex-1 bg-green-600 hover:bg-green-700">
             Book Now
           </Button>

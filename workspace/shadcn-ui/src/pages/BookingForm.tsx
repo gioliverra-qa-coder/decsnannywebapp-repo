@@ -205,12 +205,12 @@ export default function BookingForm() {
       {/* Header */}
       <header className="bg-white shadow-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex justify-between items-center">
-          <Button variant="ghost" onClick={() => navigate(`/nanny/${nanny.id}`)}>
-            <ArrowLeft className="w-4 h-4 mr-2" />
-            Back to Profile
-          </Button>
-          <h1 className="text-2xl font-bold text-green-600">DecsNanny</h1>
-          <Button variant="ghost" onClick={() => navigate('/bookings')}>My Bookings</Button>
+
+          <h1
+            className="text-2xl font-bold text-green-600 cursor-pointer hover:text-green-700 transition-colors"
+            onClick={() => navigate('/')}>
+            DecsNanny
+          </h1>
         </div>
       </header>
 
