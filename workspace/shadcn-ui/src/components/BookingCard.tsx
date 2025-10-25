@@ -1,3 +1,4 @@
+// src/components/BookingCard.tsx
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -18,7 +19,7 @@ export default function BookingCard({
   onAccept,
   onDecline,
   onMarkCompleted,
-  onMarkPaid
+  onMarkPaid,
 }: BookingCardProps) {
   const { user } = useAuth();
   const isNanny = user?.userType === 'nanny';
@@ -57,65 +58,61 @@ export default function BookingCard({
 
   const formatDate = (dateString: string) =>
     new Date(dateString).toLocaleDateString('en-US', {
-      weekday: 'long',
+      weekday: 'short',
+      month: 'short',
+      day: 'numeric',
       year: 'numeric',
-      month: 'long',
-      day: 'numeric'
     });
 
   const canMarkCompleted = isNanny && booking.status === 'accepted';
   const canMarkPaid = isNanny && booking.status === 'completed';
-  const showCompletedButton = canMarkCompleted && onMarkCompleted;
-  const showPaidButton = canMarkPaid && onMarkPaid;
 
   return (
-    <Card className="w-full">
-      <CardHeader>
-        <div className="flex justify-between items-start">
-          <CardTitle className="text-lg">
+    <Card className="w-full shadow-sm hover:shadow-md transition-shadow">
+      <CardHeader className="pb-2">
+        <div className="flex flex-col sm:flex-row justify-between gap-2 sm:items-start">
+          <CardTitle className="text-base sm:text-lg font-semibold text-gray-900">
             {isNanny
-              ? `Booking with ${booking.parent?.name || booking.parentName || 'Unknown Parent'}`
-              : `Booking with ${booking.nannyName || 'Unknown Nanny'}`}
+              ? `Booking with ${booking.parentName || 'Parent'}`
+              : `Booking with ${booking.nannyName || 'Nanny'}`}
           </CardTitle>
-          <Badge className={`${getStatusColor(booking.status)} flex items-center gap-1`}>
+          <Badge className={`${getStatusColor(booking.status)} flex items-center gap-1 self-start`}>
             {getStatusIcon(booking.status)}
-            {booking.status.charAt(0).toUpperCase() + booking.status.slice(1)}
+            <span className="capitalize text-xs sm:text-sm">{booking.status}</span>
           </Badge>
         </div>
       </CardHeader>
 
-      <CardContent className="space-y-4">
-        {/* Booking Details */}
-        <div className="grid grid-cols-2 gap-4">
-          <div className="flex items-center space-x-2">
+      <CardContent className="space-y-4 text-sm sm:text-base">
+        {/* Date & Time */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
+          <div className="flex items-center space-x-2 text-gray-700">
             <Calendar className="w-4 h-4 text-gray-500" />
-            <span className="text-sm">{formatDate(booking.date)}</span>
+            <span>{formatDate(booking.date)}</span>
           </div>
-          <div className="flex items-center space-x-2">
+          <div className="flex items-center space-x-2 text-gray-700">
             <Clock className="w-4 h-4 text-gray-500" />
-            <span className="text-sm">
-              {booking.startTime || booking.start_time} - {booking.endTime || booking.end_time}
+            <span>
+              {booking.start_time} - {booking.end_time}
             </span>
           </div>
         </div>
 
-        {/* Children Section */}
+        {/* Children Info */}
         {booking.children && booking.children.length > 0 && (
-          <div className="space-y-2">
-            <div className="flex items-center space-x-2">
+          <div className="space-y-1">
+            <div className="flex items-center space-x-2 text-gray-700 font-medium">
               <User className="w-4 h-4 text-gray-500" />
-              <span className="text-sm font-medium">Children:</span>
+              <span>Children</span>
             </div>
-            <div className="ml-6 space-y-1">
+            <div className="ml-6 space-y-1 text-gray-600 text-sm">
               {booking.children.map((child: any, index: number) => (
-                <div key={index} className="text-sm text-gray-600">
+                <div key={index}>
                   {typeof child === 'string'
                     ? child
-                    : `${child.name || 'Unnamed'} (${child.age || '?'} years old)`}
-
-                  {child.specialNeeds && (
-                    <span className="text-orange-600 ml-2">• {child.specialNeeds}</span>
-                  )}
+                    : `${child.name} (${child.age} yrs)${
+                        child.specialNeeds ? ` • ${child.specialNeeds}` : ''
+                      }`}
                 </div>
               ))}
             </div>
@@ -123,62 +120,62 @@ export default function BookingCard({
         )}
 
         {/* Special Instructions */}
-        {booking.specialInstructions && (
-          <div className="space-y-2">
-            <span className="text-sm font-medium">Special Instructions:</span>
-            <p className="text-sm text-gray-600 bg-gray-50 p-2 rounded">
-              {booking.specialInstructions}
-            </p>
+        {booking.special_instructions && (
+          <div>
+            <p className="text-sm font-medium text-gray-700 mb-1">Special Instructions:</p>
+            <div className="bg-gray-50 p-2 sm:p-3 rounded text-gray-600 text-sm">
+              {booking.special_instructions}
+            </div>
           </div>
         )}
 
-        {/* Pricing */}
-        <div className="flex justify-between items-center pt-2 border-t">
-          <span className="font-semibold text-lg">${booking.total_amount}</span>
-          <span className="text-sm text-gray-500">${booking.hourlyrate}/hour</span>
+        {/* Price & Duration */}
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center pt-2 border-t border-gray-100">
+          <div className="font-semibold text-gray-900 text-base sm:text-lg">
+            ${booking.total_amount}
+          </div>
+          <div className="text-gray-500 text-sm sm:text-base">
+            ${booking.hourlyrate}/hr • {booking.duration} hr(s)
+          </div>
         </div>
 
-        {/* Buttons */}
+        {/* Action Buttons */}
         {booking.status === 'pending' && isNanny && onAccept && onDecline && (
-          <div className="flex space-x-2 pt-2">
+          <div className="flex flex-col sm:flex-row gap-2 pt-3">
             <Button
               onClick={() => onAccept(booking.id)}
-              className="flex-1 bg-green-600 hover:bg-green-700"
+              className="w-full sm:w-auto flex-1 bg-green-600 hover:bg-green-700"
             >
               Accept
             </Button>
             <Button
               onClick={() => onDecline(booking.id)}
               variant="outline"
-              className="flex-1 border-red-300 text-red-600 hover:bg-red-50"
+              className="w-full sm:w-auto flex-1 border-red-300 text-red-600 hover:bg-red-50"
             >
               Decline
             </Button>
           </div>
         )}
 
-        {showCompletedButton && (
-          <div className="pt-2">
-            <Button
-              onClick={() => onMarkCompleted(booking.id)}
-              className="w-full bg-blue-600 hover:bg-blue-700 flex items-center justify-center gap-2"
-            >
-              <Star className="w-4 h-4" />
-              Mark as Completed
-            </Button>
-          </div>
+        {canMarkCompleted && onMarkCompleted && (
+          <Button
+            onClick={() => onMarkCompleted(booking.id)}
+            className="w-full bg-blue-600 hover:bg-blue-700 flex items-center justify-center gap-2"
+          >
+            <Star className="w-4 h-4" />
+            Mark as Completed
+          </Button>
         )}
 
-        {showPaidButton && (
-          <div className="pt-2">
-            <Button
-              onClick={() => onMarkPaid(booking.id)}
-              className="w-full bg-purple-600 hover:bg-purple-700 flex items-center justify-center gap-2"
-            >
-              <Package className="w-4 h-4" />
-              Mark as Paid
-            </Button>
-          </div>
+        {canMarkPaid && onMarkPaid && (
+          <Button
+            onClick={() => onMarkPaid(booking.id)}
+            className="w-full bg-purple-600 hover:bg-purple-700 flex items-center justify-center gap-2"
+          >
+            <Package className="w-4 h-4" />
+            Mark as Paid
+          </Button>
         )}
       </CardContent>
     </Card>

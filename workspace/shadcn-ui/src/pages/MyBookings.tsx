@@ -1,8 +1,9 @@
+// src/pages/MyBookings.tsx
 import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Calendar, Clock, CheckCircle, XCircle, Package, Star, User } from 'lucide-react';
+import { Calendar, Clock, User, Package, Star, XCircle, CheckCircle } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../utils/supabaseClient';
 import { useNavigate } from 'react-router-dom';
@@ -14,7 +15,7 @@ export default function MyBookings() {
   const [bookings, setBookings] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // Fetch bookings for the logged-in parent
+  // Fetch bookings for logged-in parent
   const fetchBookings = async () => {
     if (!user) return;
     setLoading(true);
@@ -32,9 +33,22 @@ export default function MyBookings() {
       return;
     }
 
+    // Fetch bookings + join with nannies table
     const { data, error } = await supabase
       .from('bookings')
-      .select('*')
+      .select(`
+        id,
+        date,
+        start_time,
+        end_time,
+        total_amount,
+        duration,
+        special_instructions,
+        status,
+        nanny:nannies (
+          name
+        )
+      `)
       .eq('parent_id', parentRecord.id)
       .order('created_at', { ascending: false });
 
@@ -42,21 +56,20 @@ export default function MyBookings() {
       console.error('Error fetching bookings:', error);
       setBookings([]);
     } else {
-      setBookings(data);
+      const mapped = data.map((b) => ({
+        ...b,
+        nannyName: b.nanny?.name || 'Unknown Nanny',
+      }));
+      setBookings(mapped);
     }
 
     setLoading(false);
   };
 
   const handleStatusUpdate = async (bookingId: string, newStatus: string) => {
-    const { error } = await supabase
-      .from('bookings')
-      .update({ status: newStatus })
-      .eq('id', bookingId);
-
-    if (error) {
-      toast.error('Failed to update booking status');
-    } else {
+    const { error } = await supabase.from('bookings').update({ status: newStatus }).eq('id', bookingId);
+    if (error) toast.error('Failed to update booking status');
+    else {
       toast.success(`Booking marked as ${newStatus}`);
       fetchBookings();
     }
@@ -67,45 +80,52 @@ export default function MyBookings() {
       navigate('/login');
       return;
     }
-
     fetchBookings();
 
     const subscription = supabase
       .channel('public:bookings')
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'bookings' },
-        () => fetchBookings()
-      )
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'bookings' }, () => fetchBookings())
       .subscribe();
 
     return () => supabase.removeChannel(subscription);
   }, [user, navigate]);
 
-  // Group bookings by status
+  // Group by status
   const groupedBookings: Record<string, any[]> = {
-    pending: bookings.filter(b => b.status === 'pending'),
-    accepted: bookings.filter(b => b.status === 'accepted'),
-    completed: bookings.filter(b => b.status === 'completed'),
-    paid: bookings.filter(b => b.status === 'paid'),
-    declined: bookings.filter(b => b.status === 'declined'),
-    cancelled: bookings.filter(b => b.status === 'cancelled'),
+    pending: bookings.filter((b) => b.status === 'pending'),
+    accepted: bookings.filter((b) => b.status === 'accepted'),
+    completed: bookings.filter((b) => b.status === 'completed'),
+    paid: bookings.filter((b) => b.status === 'paid'),
+    declined: bookings.filter((b) => b.status === 'declined'),
+    cancelled: bookings.filter((b) => b.status === 'cancelled'),
   };
 
-  if (!user || user.userType !== 'parent') {
-    return <div>Access denied. Please log in as a parent.</div>;
-  }
+  if (!user || user.userType !== 'parent') return <div>Access denied. Please log in as a parent.</div>;
+
+  const colorMap: Record<string, string> = {
+    pending: 'yellow',
+    accepted: 'green',
+    completed: 'blue',
+    paid: 'purple',
+    declined: 'red',
+    cancelled: 'gray',
+  };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-green-50 to-emerald-50">
       {/* Header */}
       <header className="bg-white shadow-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex justify-between items-center">
-          <h1 className="text-2xl font-bold text-green-600 cursor-pointer" onClick={() => navigate('/')}>
+          <h1
+            className="text-2xl font-bold text-green-600 cursor-pointer hover:text-green-700 transition-colors"
+            onClick={() => navigate('/')}
+          >
             DecsNanny
           </h1>
           <div className="flex items-center space-x-4">
-            <Button variant="ghost" onClick={() => navigate('/nannies')}>Find Nannies</Button>
+            <Button variant="ghost" onClick={() => navigate('/nannies')}>
+              Find Nannies
+            </Button>
             <Button variant="ghost" onClick={() => navigate('/profile')}>
               <User className="w-4 h-4 mr-2" />
               {user?.name}
@@ -114,44 +134,32 @@ export default function MyBookings() {
         </div>
       </header>
 
-      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Welcome */}
-        <div className="mb-8">
+      <main className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {/* Header Info */}
+        <div className="mb-8 text-center sm:text-left">
           <h1 className="text-3xl font-bold text-gray-900 mb-2">My Bookings</h1>
-          <p className="text-gray-600">Track all your nanny booking requests and their status</p>
+          <p className="text-gray-600">Track all your nanny bookings and their progress</p>
           <p className="text-sm text-gray-500 mt-2">Total bookings: {bookings.length}</p>
         </div>
 
-        {/* Stats Cards */}
-        <div className="grid grid-cols-2 md:grid-cols-6 gap-4 mb-8">
-          {Object.entries(groupedBookings).map(([status, list]) => {
-            const colors: Record<string, string> = {
-              pending: 'yellow',
-              accepted: 'green',
-              completed: 'blue',
-              paid: 'purple',
-              declined: 'red',
-              cancelled: 'gray',
-            };
-            return (
-              <Card key={status}>
-                <CardHeader className="flex justify-between pb-2">
-                  <CardTitle className="text-sm font-medium">
-                    {status.charAt(0).toUpperCase() + status.slice(1)}
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className={`text-2xl font-bold text-${colors[status]}-600`}>
-                    {list.length}
-                  </div>
-                </CardContent>
-              </Card>
-            );
-          })}
+        {/* Status Cards */}
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4 mb-8">
+          {Object.entries(groupedBookings).map(([status, list]) => (
+            <Card key={status} className="text-center">
+              <CardHeader className="pb-1">
+                <CardTitle className="text-sm font-medium capitalize">{status}</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className={`text-2xl font-bold text-${colorMap[status]}-600`}>{list.length}</div>
+              </CardContent>
+            </Card>
+          ))}
         </div>
 
-        {loading && <p className="text-center">Loading bookings...</p>}
+        {/* Loading State */}
+        {loading && <p className="text-center text-gray-600">Loading bookings...</p>}
 
+        {/* Empty State */}
         {!loading && bookings.length === 0 && (
           <Card className="text-center py-12">
             <CardContent>
@@ -165,29 +173,18 @@ export default function MyBookings() {
           </Card>
         )}
 
-        {/* Booking Lists */}
-        {(['pending', 'accepted', 'completed', 'paid', 'declined', 'cancelled'] as const).map(status => {
-          const list = groupedBookings[status];
-          if (!list || list.length === 0) return null;
-          const colors: Record<string, string> = {
-            pending: 'yellow',
-            accepted: 'green',
-            completed: 'blue',
-            paid: 'purple',
-            declined: 'red',
-            cancelled: 'gray',
-          };
-
-          return (
-            <div key={status} className="mb-8">
+        {/* Bookings by Status */}
+        {Object.entries(groupedBookings).map(([status, list]) =>
+          list.length > 0 ? (
+            <section key={status} className="mb-10">
               <h2 className="text-2xl font-semibold text-gray-900 mb-4 flex items-center gap-2">
                 {status.charAt(0).toUpperCase() + status.slice(1)} Bookings
-                <Badge className={`bg-${colors[status]}-100 text-${colors[status]}-800`}>
+                <Badge className={`bg-${colorMap[status]}-100 text-${colorMap[status]}-800`}>
                   {list.length}
                 </Badge>
               </h2>
               <div className="grid gap-4">
-                {list.map(booking => (
+                {list.map((booking) => (
                   <BookingCardInner
                     key={booking.id}
                     booking={booking}
@@ -195,15 +192,15 @@ export default function MyBookings() {
                   />
                 ))}
               </div>
-            </div>
-          );
-        })}
-      </div>
+            </section>
+          ) : null
+        )}
+      </main>
     </div>
   );
 }
 
-// Inner BookingCard component with Cancel & Rebook buttons
+// Booking Card Inner
 function BookingCardInner({
   booking,
   onUpdateStatus,
@@ -214,53 +211,83 @@ function BookingCardInner({
   const navigate = useNavigate();
 
   const handleCancel = () => {
-    if (confirm('Are you sure you want to cancel this booking?')) {
-      onUpdateStatus(booking.id, 'cancelled');
-    }
+    if (confirm('Are you sure you want to cancel this booking?')) onUpdateStatus(booking.id, 'cancelled');
   };
 
-  const handleRebook = () => {
-    navigate(`/booking/${booking.nanny_id}`);
+  const handleRebook = () => navigate(`/booking/${booking.nanny_id}`);
+
+  const icons: Record<string, JSX.Element> = {
+    pending: <Clock className="w-4 h-4" />,
+    accepted: <CheckCircle className="w-4 h-4" />,
+    completed: <Star className="w-4 h-4" />,
+    paid: <Package className="w-4 h-4" />,
+    declined: <XCircle className="w-4 h-4" />,
+    cancelled: <XCircle className="w-4 h-4" />,
+  };
+
+  const colorMap: Record<string, string> = {
+    pending: 'yellow',
+    accepted: 'green',
+    completed: 'blue',
+    paid: 'purple',
+    declined: 'red',
+    cancelled: 'gray',
   };
 
   return (
-    <Card className="shadow">
-      <CardHeader className="flex justify-between items-center">
-        <CardTitle>{booking.nanny_name}</CardTitle>
+    <Card className="shadow-sm hover:shadow-md transition-shadow">
+      <CardHeader className="pb-2 flex flex-col sm:flex-row justify-between gap-2 sm:items-start">
+        <CardTitle className="text-base sm:text-lg font-semibold text-gray-900">
+          Booking with {booking.nannyName}
+        </CardTitle>
         <Badge
-          className={`${
-            booking.status === 'pending'
-              ? 'bg-yellow-100 text-yellow-800'
-              : booking.status === 'accepted'
-              ? 'bg-green-100 text-green-800'
-              : booking.status === 'completed'
-              ? 'bg-blue-100 text-blue-800'
-              : booking.status === 'paid'
-              ? 'bg-purple-100 text-purple-800'
-              : booking.status === 'declined'
-              ? 'bg-red-100 text-red-800'
-              : 'bg-gray-100 text-gray-800'
-          }`}
+          className={`flex items-center gap-1 bg-${colorMap[booking.status]}-100 text-${colorMap[booking.status]}-800`}
         >
-          {booking.status}
+          {icons[booking.status]}
+          <span className="capitalize text-xs sm:text-sm">{booking.status}</span>
         </Badge>
       </CardHeader>
-      <CardContent>
-        <p>Date: {booking.date}</p>
-        <p>Start Time: {booking.start_time}</p>
-        <p>End Time: {booking.end_time}</p>
-        <p>Duration: {booking.duration} hr(s)</p>
-        <p>Total: ${booking.total_amount}</p>
-        {booking.special_instructions && <p>Notes: {booking.special_instructions}</p>}
+      <CardContent className="space-y-3 text-sm sm:text-base">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-gray-700">
+          <div className="flex items-center space-x-2">
+            <Calendar className="w-4 h-4 text-gray-500" />
+            <span>{booking.date}</span>
+          </div>
+          <div className="flex items-center space-x-2">
+            <Clock className="w-4 h-4 text-gray-500" />
+            <span>
+              {booking.start_time} - {booking.end_time}
+            </span>
+          </div>
+        </div>
 
-        <div className="flex gap-2 mt-4 flex-wrap">
+        <p className="text-gray-700">Duration: {booking.duration} hr(s)</p>
+        <p className="font-semibold text-gray-900">Total: ${booking.total_amount}</p>
+
+        {booking.special_instructions && (
+          <div className="bg-gray-50 p-2 sm:p-3 rounded text-gray-600">
+            <span className="font-medium">Notes:</span> {booking.special_instructions}
+          </div>
+        )}
+
+        <div className="flex flex-col sm:flex-row gap-2 mt-4">
           {(booking.status === 'pending' || booking.status === 'accepted') && (
-            <Button size="sm" variant="destructive" onClick={handleCancel}>
+            <Button
+              size="sm"
+              variant="destructive"
+              onClick={handleCancel}
+              className="w-full sm:w-auto flex-1"
+            >
               Cancel Booking
             </Button>
           )}
           {booking.status === 'completed' && (
-            <Button size="sm" variant="secondary" onClick={handleRebook}>
+            <Button
+              size="sm"
+              variant="secondary"
+              onClick={handleRebook}
+              className="w-full sm:w-auto flex-1"
+            >
               Rebook
             </Button>
           )}
