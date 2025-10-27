@@ -12,6 +12,7 @@ import Register from './pages/Register';
 import Profile from './pages/Profile';
 import ProfileSetup from './pages/ProfileSetup';
 import NannyDashboard from './pages/NannyDashboard';
+import AuthCallback from './pages/AuthCallback';
 
 function App() {
   return (
@@ -29,6 +30,7 @@ function App() {
             <Route path="/register" element={<Register />} />
             <Route path="/profile" element={<Profile />} />
             <Route path="/profile/setup" element={<ProfileSetup />} />
+            <Route path="/auth/callback" element={<AuthCallback />} />
           </Routes>
           <Toaster />
         </div>
