@@ -3,7 +3,7 @@ import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Calendar, DollarSign, Star, Clock, Package, User } from 'lucide-react';
+import { Calendar, DollarSign, Star, Clock, Package, User, XCircle, Ban } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../utils/supabaseClient';
 import BookingCard from '../components/BookingCard';
@@ -15,6 +15,7 @@ export default function NannyDashboard() {
   const navigate = useNavigate();
   const [bookings, setBookings] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [selectedStatus, setSelectedStatus] = useState<string | null>(null);
 
   // Fetch bookings for nanny
   const fetchBookings = async () => {
@@ -103,10 +104,22 @@ export default function NannyDashboard() {
   const acceptedBookings = bookings.filter((b) => b.status === 'accepted');
   const completedBookings = bookings.filter((b) => b.status === 'completed');
   const paidBookings = bookings.filter((b) => b.status === 'paid');
+  const cancelledBookings = bookings.filter((b) => b.status === 'cancelled');
+  const declinedBookings = bookings.filter((b) => b.status === 'declined');
   const totalEarnings = paidBookings.reduce((sum, b) => sum + (b.total_amount || 0), 0);
 
   if (!user || user.userType !== 'nanny')
     return <div>Access denied. Please log in as a nanny.</div>;
+
+  // Define highlight color per status
+  const statusColors: Record<string, string> = {
+    pending: 'bg-yellow-50 border-yellow-500',
+    accepted: 'bg-green-50 border-green-500',
+    completed: 'bg-blue-50 border-blue-500',
+    paid: 'bg-purple-50 border-purple-500',
+    cancelled: 'bg-red-50 border-red-500',
+    declined: 'bg-orange-50 border-orange-500',
+  };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-green-50 to-emerald-50">
@@ -139,16 +152,28 @@ export default function NannyDashboard() {
           </p>
         </div>
 
-        {/* Stats Grid */}
+        {/* Stats Grid with Enhanced Clickable Filters */}
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-6 mb-8">
           {[
-            { title: 'Pending', value: pendingBookings.length, color: 'text-yellow-600', icon: Clock },
-            { title: 'Accepted', value: acceptedBookings.length, color: 'text-green-600', icon: Calendar },
-            { title: 'Completed', value: completedBookings.length, color: 'text-blue-600', icon: Star },
-            { title: 'Paid', value: paidBookings.length, color: 'text-purple-600', icon: Package },
-            { title: 'Earnings', value: `$${totalEarnings}`, color: 'text-emerald-600', icon: DollarSign },
-          ].map(({ title, value, color, icon: Icon }) => (
-            <Card key={title}>
+            { title: 'Pending', value: pendingBookings.length, color: 'text-yellow-600', icon: Clock, key: 'pending', clickable: true },
+            { title: 'Accepted', value: acceptedBookings.length, color: 'text-green-600', icon: Calendar, key: 'accepted', clickable: true },
+            { title: 'Completed', value: completedBookings.length, color: 'text-blue-600', icon: Star, key: 'completed', clickable: true },
+            { title: 'Paid', value: paidBookings.length, color: 'text-purple-600', icon: Package, key: 'paid', clickable: true },
+            { title: 'Declined by Nanny', value: declinedBookings.length, color: 'text-orange-600', icon: Ban, key: 'declined', clickable: true },
+            { title: 'Cancelled by Parent', value: cancelledBookings.length, color: 'text-red-600', icon: XCircle, key: 'cancelled', clickable: true },
+            { title: 'Earnings', value: `$${totalEarnings}`, color: 'text-emerald-600', icon: DollarSign, key: 'earnings', clickable: false },
+          ].map(({ title, value, color, icon: Icon, key, clickable }) => (
+            <Card
+              key={key}
+              onClick={clickable ? () => setSelectedStatus(selectedStatus === key ? null : key) : undefined}
+              className={`transition-all ${
+                clickable ? 'cursor-pointer hover:scale-105' : 'cursor-default'
+              } ${
+                selectedStatus === key
+                  ? `${statusColors[key]} border-2 shadow-lg`
+                  : 'bg-white'
+              }`}
+            >
               <CardHeader className="flex justify-between pb-1">
                 <CardTitle className="text-xs sm:text-sm font-medium">{title}</CardTitle>
                 <Icon className={`h-4 w-4 ${color}`} />
@@ -160,37 +185,45 @@ export default function NannyDashboard() {
           ))}
         </div>
 
-        {/* Bookings by Status */}
-        {[
-          { title: 'Pending Requests', list: pendingBookings, icon: Clock, action: 'pending' },
-          { title: 'Accepted Bookings', list: acceptedBookings, icon: Calendar, action: 'accepted' },
-          { title: 'Completed - Ready for Payment', list: completedBookings, icon: Star, action: 'completed' },
-          { title: 'Paid Services', list: paidBookings, icon: Package, action: 'paid' },
-        ].map(({ title, list, icon: Icon, action }) =>
-          list.length > 0 ? (
-            <section key={action} className="mb-10">
-              <h2 className="text-xl sm:text-2xl font-semibold text-gray-900 mb-3 flex items-center gap-2 flex-wrap">
-                <Icon className="w-5 h-5 sm:w-6 sm:h-6 text-gray-700" />
-                {title}
-                <Badge className="bg-gray-100 text-gray-800 text-xs sm:text-sm">
-                  {list.length}
-                </Badge>
-              </h2>
-              <div className="grid gap-4 sm:gap-6">
-                {list.map((booking) => (
-                  <BookingCard
-                    key={booking.id}
-                    booking={booking}
-                    onAccept={() => updateBookingStatus(booking.id, 'accepted')}
-                    onDecline={() => updateBookingStatus(booking.id, 'declined')}
-                    onMarkCompleted={() => updateBookingStatus(booking.id, 'completed')}
-                    onMarkPaid={() => updateBookingStatus(booking.id, 'paid')}
-                  />
-                ))}
-              </div>
-            </section>
-          ) : null
-        )}
+        {/* Filtered Bookings */}
+        <section className="mb-10">
+          <div className="flex flex-wrap justify-between items-center mb-4">
+            <h2 className="text-xl sm:text-2xl font-semibold text-gray-900 flex items-center gap-2">
+              {selectedStatus
+                ? `${selectedStatus.charAt(0).toUpperCase() + selectedStatus.slice(1)} Bookings`
+                : 'All Bookings'}
+            </h2>
+
+            {selectedStatus && (
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => setSelectedStatus(null)}
+                className="text-sm border-green-500 text-green-600 hover:bg-green-50 transition-colors"
+              >
+                Show All
+              </Button>
+            )}
+          </div>
+
+          <div className="grid gap-4 sm:gap-6">
+            {(selectedStatus
+              ? bookings.filter((b) => b.status === selectedStatus)
+              : bookings
+            ).map((booking) => (
+              <BookingCard
+                key={booking.id}
+                booking={booking}
+                onAccept={() => updateBookingStatus(booking.id, 'accepted')}
+                onDecline={() => updateBookingStatus(booking.id, 'declined')}
+                onMarkCompleted={() => updateBookingStatus(booking.id, 'completed')}
+                onMarkPaid={() => updateBookingStatus(booking.id, 'paid')}
+                onMarkDeclined={() => updateBookingStatus(booking.id, 'declined')}
+                onMarkCancelled={() => updateBookingStatus(booking.id, 'cancelled')}
+              />
+            ))}
+          </div>
+        </section>
 
         {/* Empty State */}
         {!loading && bookings.length === 0 && (

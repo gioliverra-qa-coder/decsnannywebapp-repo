@@ -3,7 +3,7 @@ import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Calendar, Clock, User, Package, Star, XCircle, CheckCircle } from 'lucide-react';
+import { Calendar, Clock, User, Package, Star, XCircle, Ban, CheckCircle } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../utils/supabaseClient';
 import { useNavigate } from 'react-router-dom';
@@ -14,6 +14,27 @@ export default function MyBookings() {
   const navigate = useNavigate();
   const [bookings, setBookings] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [selectedStatus, setSelectedStatus] = useState<string | null>(null);
+
+  // Status labels for display
+  const statusLabels: Record<string, string> = {
+    pending: 'Pending',
+    accepted: 'Accepted',
+    completed: 'Completed',
+    paid: 'Paid',
+    declined: 'Declined by Nanny',
+    cancelled: 'Cancelled by Parent',
+  };
+
+  // Status colors
+  const colorMap: Record<string, string> = {
+    pending: 'yellow',
+    accepted: 'green',
+    completed: 'blue',
+    paid: 'purple',
+    declined: 'red',
+    cancelled: 'gray',
+  };
 
   // Fetch bookings for logged-in parent
   const fetchBookings = async () => {
@@ -33,7 +54,6 @@ export default function MyBookings() {
       return;
     }
 
-    // Fetch bookings + join with nannies table
     const { data, error } = await supabase
       .from('bookings')
       .select(`
@@ -67,7 +87,10 @@ export default function MyBookings() {
   };
 
   const handleStatusUpdate = async (bookingId: string, newStatus: string) => {
-    const { error } = await supabase.from('bookings').update({ status: newStatus }).eq('id', bookingId);
+    const { error } = await supabase
+      .from('bookings')
+      .update({ status: newStatus })
+      .eq('id', bookingId);
     if (error) toast.error('Failed to update booking status');
     else {
       toast.success(`Booking marked as ${newStatus}`);
@@ -90,7 +113,7 @@ export default function MyBookings() {
     return () => supabase.removeChannel(subscription);
   }, [user, navigate]);
 
-  // Group by status
+  // Group bookings by status
   const groupedBookings: Record<string, any[]> = {
     pending: bookings.filter((b) => b.status === 'pending'),
     accepted: bookings.filter((b) => b.status === 'accepted'),
@@ -102,23 +125,12 @@ export default function MyBookings() {
 
   if (!user || user.userType !== 'parent') return <div>Access denied. Please log in as a parent.</div>;
 
-  const colorMap: Record<string, string> = {
-    pending: 'yellow',
-    accepted: 'green',
-    completed: 'blue',
-    paid: 'purple',
-    declined: 'red',
-    cancelled: 'gray',
-  };
-
   return (
     <div className="min-h-screen bg-gradient-to-br from-green-50 to-emerald-50">
       {/* Header */}
       <header className="bg-white shadow-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex justify-between items-center">
-          <h1
-            className="text-2xl font-bold text-green-600 cursor-pointer hover:text-green-700 transition-colors"
-            onClick={() => navigate('/')}>
+          <h1 className="text-2xl font-bold text-green-600 cursor-pointer hover:text-green-700 transition-colors" onClick={() => navigate('/')}>
             DecsNanny
           </h1>
           <div className="flex items-center space-x-4">
@@ -137,12 +149,18 @@ export default function MyBookings() {
           <p className="text-sm text-gray-500 mt-2">Total bookings: {bookings.length}</p>
         </div>
 
-        {/* Status Cards */}
+        {/* Status Filter Cards */}
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4 mb-8">
           {Object.entries(groupedBookings).map(([status, list]) => (
-            <Card key={status} className="text-center">
+            <Card
+              key={status}
+              onClick={() => setSelectedStatus(selectedStatus === status ? null : status)}
+              className={`text-center cursor-pointer transition-all hover:scale-105 ${
+                selectedStatus === status ? `border-2 ${colorMap[status]}-100 bg-${colorMap[status]}-50 shadow-lg` : 'bg-white'
+              }`}
+            >
               <CardHeader className="pb-1">
-                <CardTitle className="text-sm font-medium capitalize">{status}</CardTitle>
+                <CardTitle className="text-sm font-medium capitalize">{statusLabels[status] || status}</CardTitle>
               </CardHeader>
               <CardContent>
                 <div className={`text-2xl font-bold text-${colorMap[status]}-600`}>{list.length}</div>
@@ -151,8 +169,31 @@ export default function MyBookings() {
           ))}
         </div>
 
-        {/* Loading State */}
-        {loading && <p className="text-center text-gray-600">Loading bookings...</p>}
+        {/* Show All Button */}
+        {selectedStatus && (
+          <div className="mb-4 text-right">
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => setSelectedStatus(null)}
+              className="text-sm border-green-500 text-green-600 hover:bg-green-50 transition-colors"
+            >
+              Show All
+            </Button>
+          </div>
+        )}
+
+        {/* Bookings List */}
+        <div className="grid gap-4">
+          {(selectedStatus ? bookings.filter((b) => b.status === selectedStatus) : bookings).map((booking) => (
+            <BookingCardInner
+              key={booking.id}
+              booking={booking}
+              onUpdateStatus={handleStatusUpdate}
+              statusLabels={statusLabels}
+            />
+          ))}
+        </div>
 
         {/* Empty State */}
         {!loading && bookings.length === 0 && (
@@ -166,29 +207,6 @@ export default function MyBookings() {
               <Button onClick={() => navigate('/nannies')}>Find Nannies</Button>
             </CardContent>
           </Card>
-        )}
-
-        {/* Bookings by Status */}
-        {Object.entries(groupedBookings).map(([status, list]) =>
-          list.length > 0 ? (
-            <section key={status} className="mb-10">
-              <h2 className="text-2xl font-semibold text-gray-900 mb-4 flex items-center gap-2">
-                {status.charAt(0).toUpperCase() + status.slice(1)} Bookings
-                <Badge className={`bg-${colorMap[status]}-100 text-${colorMap[status]}-800`}>
-                  {list.length}
-                </Badge>
-              </h2>
-              <div className="grid gap-4">
-                {list.map((booking) => (
-                  <BookingCardInner
-                    key={booking.id}
-                    booking={booking}
-                    onUpdateStatus={handleStatusUpdate}
-                  />
-                ))}
-              </div>
-            </section>
-          ) : null
         )}
       </main>
     </div>
@@ -206,10 +224,24 @@ function BookingCardInner({
   const navigate = useNavigate();
 
   const handleCancel = () => {
-    if (confirm('Are you sure you want to cancel this booking?')) onUpdateStatus(booking.id, 'cancelled');
+    if (confirm('Are you sure you want to cancel this booking?')) {
+      onUpdateStatus(booking.id, 'cancelled');
+    }
   };
 
-  const handleRebook = () => navigate(`/booking/${booking.nanny_id}`);
+  const handleRebook = () => {
+    navigate(`/booking/${booking.nanny_id}`);
+  };
+
+  // Status labels
+  const statusLabels: Record<string, string> = {
+    pending: 'Pending',
+    accepted: 'Accepted',
+    completed: 'Completed',
+    paid: 'Paid',
+    declined: 'Declined by Nanny',
+    cancelled: 'Cancelled by Parent',
+  };
 
   const icons: Record<string, JSX.Element> = {
     pending: <Clock className="w-4 h-4" />,
@@ -239,7 +271,7 @@ function BookingCardInner({
           className={`flex items-center gap-1 bg-${colorMap[booking.status]}-100 text-${colorMap[booking.status]}-800`}
         >
           {icons[booking.status]}
-          <span className="capitalize text-xs sm:text-sm">{booking.status}</span>
+          <span className="capitalize text-xs sm:text-sm">{statusLabels[booking.status]}</span>
         </Badge>
       </CardHeader>
       <CardContent className="space-y-3 text-sm sm:text-base">
