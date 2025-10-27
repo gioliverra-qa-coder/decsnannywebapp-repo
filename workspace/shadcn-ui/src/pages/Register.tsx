@@ -1,17 +1,20 @@
-import { useState } from 'react';
+// src/pages/Register.tsx
+import { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { User, Mail, Lock, ArrowLeft, Phone, UserCheck } from 'lucide-react';
+import { User, Mail, Lock, Phone } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAuth } from '../contexts/AuthContext';
+import { supabase } from '../utils/supabaseClient';
 
 export default function Register() {
   const navigate = useNavigate();
   const { register } = useAuth();
   const [isLoading, setIsLoading] = useState(false);
+  const [isGoogleUser, setIsGoogleUser] = useState(false);
 
   const [formData, setFormData] = useState({
     name: '',
@@ -22,6 +25,22 @@ export default function Register() {
     userType: '' as 'parent' | 'nanny' | ''
   });
 
+  // Pre-fill form data if coming from Google login
+  useEffect(() => {
+    const fillGoogleUser = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session?.user && session.user.app_metadata?.provider === 'google') {
+        setIsGoogleUser(true);
+        setFormData(prev => ({
+          ...prev,
+          name: session.user.user_metadata?.full_name || '',
+          email: session.user.email || ''
+        }));
+      }
+    };
+    fillGoogleUser();
+  }, []);
+
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
@@ -30,37 +49,43 @@ export default function Register() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!formData.name || !formData.email || !formData.phone || !formData.password || !formData.userType) {
-      toast.error('Please fill in all fields');
+    // Validate required fields
+    if (!formData.name || !formData.email || !formData.phone || !formData.userType) {
+      toast.error('Please fill in all required fields');
       return;
     }
 
-    if (formData.password !== formData.confirmPassword) {
-      toast.error('Passwords do not match');
-      return;
-    }
-
-    if (formData.password.length < 6) {
-      toast.error('Password must be at least 6 characters');
-      return;
+    // Password validation only for manual users
+    if (!isGoogleUser) {
+      if (!formData.password || !formData.confirmPassword) {
+        toast.error('Please enter password and confirm it');
+        return;
+      }
+      if (formData.password !== formData.confirmPassword) {
+        toast.error('Passwords do not match');
+        return;
+      }
+      if (formData.password.length < 6) {
+        toast.error('Password must be at least 6 characters');
+        return;
+      }
     }
 
     setIsLoading(true);
-
     try {
       const success = await register(
         {
           name: formData.name,
           email: formData.email,
           phone: formData.phone,
-          userType: formData.userType,
+          userType: formData.userType
         },
-        formData.password
+        isGoogleUser ? undefined : formData.password
       );
 
       if (success) {
         toast.success('Registration successful!');
-        navigate('/profile/setup'); // ✅ Redirect to Profile Setup
+        navigate('/profile/setup');
       } else {
         toast.error('Registration failed. Please check your details and try again.');
       }
@@ -73,27 +98,17 @@ export default function Register() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <header className="bg-white shadow-sm">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex justify-between items-center">
-          <Button variant="ghost" onClick={() => navigate('/')}>
-            <ArrowLeft className="w-4 h-4 mr-2" />
-            Back to Home
-          </Button>
-          <h1 className="text-2xl font-bold text-green-600">DecsNanny</h1>
-          <div></div>
-        </div>
-      </header>
-
-      <div className="flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
-        <Card className="w-full max-w-md">
+    <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center">
+      <div className="w-full max-w-md">
+        <Card className="w-full">
           <CardHeader className="text-center">
-            <CardTitle className="text-2xl">Create an Account</CardTitle>
+            <CardTitle className="text-2xl font-bold text-green-700">Create an Account</CardTitle>
             <p className="text-gray-600">Join our community today!</p>
           </CardHeader>
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-4">
-              {/* Name */}
+              
+              {/* Full Name */}
               <div className="space-y-2">
                 <Label htmlFor="name">Full Name</Label>
                 <div className="relative">
@@ -162,46 +177,48 @@ export default function Register() {
                 </select>
               </div>
 
-              {/* Password */}
-              <div className="space-y-2">
-                <Label htmlFor="password">Password</Label>
-                <div className="relative">
-                  <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-                  <Input
-                    id="password"
-                    name="password"
-                    type="password"
-                    value={formData.password}
-                    onChange={handleChange}
-                    placeholder="Enter your password"
-                    className="pl-10"
-                    required
-                  />
-                </div>
-              </div>
+              {/* Password & Confirm Password only for manual users */}
+              {!isGoogleUser && (
+                <>
+                  <div className="space-y-2">
+                    <Label htmlFor="password">Password</Label>
+                    <div className="relative">
+                      <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+                      <Input
+                        id="password"
+                        name="password"
+                        type="password"
+                        value={formData.password}
+                        onChange={handleChange}
+                        placeholder="Enter your password"
+                        className="pl-10"
+                        required
+                      />
+                    </div>
+                  </div>
 
-              {/* Confirm Password */}
-              <div className="space-y-2">
-                <Label htmlFor="confirmPassword">Confirm Password</Label>
-                <div className="relative">
-                  <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-                  <Input
-                    id="confirmPassword"
-                    name="confirmPassword"
-                    type="password"
-                    value={formData.confirmPassword}
-                    onChange={handleChange}
-                    placeholder="Confirm your password"
-                    className="pl-10"
-                    required
-                  />
-                </div>
-              </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="confirmPassword">Confirm Password</Label>
+                    <div className="relative">
+                      <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+                      <Input
+                        id="confirmPassword"
+                        name="confirmPassword"
+                        type="password"
+                        value={formData.confirmPassword}
+                        onChange={handleChange}
+                        placeholder="Confirm your password"
+                        className="pl-10"
+                        required
+                      />
+                    </div>
+                  </div>
+                </>
+              )}
 
-              {/* Register Button */}
               <Button
                 type="submit"
-                className="w-full bg-green-600 hover:bg-green-700"
+                className="w-full bg-green-600 hover:bg-green-700 text-white"
                 disabled={isLoading}
               >
                 {isLoading ? 'Creating account...' : 'Create Account'}
@@ -211,7 +228,7 @@ export default function Register() {
             <div className="mt-6 text-center">
               <p className="text-sm text-gray-600">
                 Already have an account?{' '}
-                <Link to="/login" className="text-green-600 hover:underline">
+                <Link to="/login" className="text-green-600 hover:underline font-medium">
                   Sign in here
                 </Link>
               </p>
