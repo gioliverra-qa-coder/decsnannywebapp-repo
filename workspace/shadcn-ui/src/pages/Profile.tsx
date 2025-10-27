@@ -131,7 +131,6 @@ export default function Profile() {
           <h1 className="text-2xl font-bold text-green-600 cursor-pointer" onClick={() => navigate('/')}>DecsNanny
           </h1>
           <div className="flex items-center gap-2">
-            <Button variant="ghost" onClick={() => navigate('/bookings')}>My Bookings</Button>
             <Button variant="outline" onClick={handleLogout}>Logout</Button>
           </div>
         </div>
