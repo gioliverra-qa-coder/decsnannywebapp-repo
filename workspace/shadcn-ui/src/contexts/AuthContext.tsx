@@ -38,23 +38,36 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     isLoading: true,
   });
 
-  // --- Handle Google OAuth redirect and session setup ---
+  // ✅ Helper to set user in state and localStorage
+  const authSetUser = (dbUser: any) => {
+    const formattedUser: User = {
+      id: dbUser.id,
+      name: dbUser.name,
+      email: dbUser.email,
+      phone: dbUser.phone,
+      userType: dbUser.user_type ?? dbUser.userType, // ✅ FIXED (handles both DB & app format)
+      createdAt: dbUser.created_at || dbUser.createdAt || new Date().toISOString(),
+    };
+
+    localStorage.setItem("currentUser", JSON.stringify(formattedUser));
+    setAuthState({ user: formattedUser, isAuthenticated: true, isLoading: false });
+  };
+
+  // ✅ Check session on load (Google OAuth + refresh persistence)
   useEffect(() => {
     const handleOAuthRedirect = async () => {
       const url = new URL(window.location.href);
 
+      // ✅ Extract Google OAuth tokens from hash fragment
       if (url.hash.includes("access_token")) {
         const params = new URLSearchParams(url.hash.substring(1));
-        const access_token = params.get("access_token");
-        const refresh_token = params.get("refresh_token");
+        await supabase.auth.setSession({
+          access_token: params.get("access_token")!,
+          refresh_token: params.get("refresh_token")!,
+        });
 
-        if (access_token) {
-          await supabase.auth.setSession({
-            access_token,
-            refresh_token: refresh_token!,
-          });
-          window.history.replaceState({}, "", "/auth/callback");
-        }
+        // ✅ Clean URL
+        window.history.replaceState({}, "", "/auth/callback");
       }
 
       const { data } = await supabase.auth.getSession();
@@ -65,7 +78,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return;
       }
 
-      // Check if user exists in DB
+      // ✅ Check if user exists in your users table
       const { data: existingUser } = await supabase
         .from("users")
         .select("*")
@@ -74,16 +87,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       if (existingUser) {
         authSetUser(existingUser);
-        navigate("/"); // Existing user → home
+        navigate("/"); // ✅ Existing user goes home
       } else {
-        // New Google user → go to registration form
+        // ✅ New Google user → continue registration
         setAuthState({
           user: {
             id: sessionUser.id,
             name: sessionUser.user_metadata.full_name || "",
             email: sessionUser.email || "",
             phone: "",
-            userType: "",
+            userType: "", // still empty until registration step
             createdAt: new Date().toISOString(),
           },
           isAuthenticated: false,
@@ -96,24 +109,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     handleOAuthRedirect();
   }, []);
 
-  const authSetUser = (dbUser: any) => {
-    const formattedUser: User = {
-      id: dbUser.id,
-      name: dbUser.name,
-      email: dbUser.email,
-      phone: dbUser.phone,
-      userType: dbUser.user_type,
-      createdAt: dbUser.created_at || new Date().toISOString(),
-    };
-
-    localStorage.setItem("currentUser", JSON.stringify(formattedUser));
-    setAuthState({ user: formattedUser, isAuthenticated: true, isLoading: false });
-  };
-
-  // --- Manual login ---
+  // ✅ Manual Login
   const login = async (email: string, password: string): Promise<boolean> => {
     try {
       const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+
       if (error || !data.user) {
         toast.error(error?.message || "Login failed");
         return false;
@@ -132,67 +132,69 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       authSetUser(userRow);
       toast.success("Welcome back!");
-      navigate("/"); // Go to home page
+      navigate("/");
       return true;
     } catch (err: any) {
-      toast.error(err.message || "An unexpected error occurred");
+      toast.error(err.message || "Unexpected error");
       return false;
     }
   };
 
-  // --- Google Login ---
+  // ✅ Google Login
   const loginWithGoogle = async () => {
     await supabase.auth.signInWithOAuth({
       provider: "google",
-      options: {
-        redirectTo: `${window.location.origin}/auth/callback`,
-      },
+      options: { redirectTo: `${window.location.origin}/auth/callback` },
     });
   };
 
-  // --- Register (manual or Google user finishing setup) ---
+  // ✅ Register (manual or finishing Google signup)
   const register = async (userData: Partial<User>, password?: string): Promise<boolean> => {
     try {
       const { data: session } = await supabase.auth.getSession();
       let userId = session?.session?.user?.id;
 
+      // ✅ Manual login flow (email/password)
       if (!userId && password) {
         const { data, error } = await supabase.auth.signUp({
           email: userData.email!,
           password,
         });
+
         if (error || !data.user) {
           toast.error(error?.message || "Registration failed");
           return false;
         }
+
         userId = data.user.id;
       }
 
-      // Insert or update user row
+      // ✅ Save user to DB
       await supabase.from("users").upsert({
         id: userId,
         name: userData.name,
         email: userData.email,
         phone: userData.phone,
-        user_type: userData.userType,
+        user_type: userData.userType, // ✅ DB column
         created_at: new Date().toISOString(),
       });
 
+      // ✅ Save authenticated user
       authSetUser({
         id: userId!,
         name: userData.name!,
         email: userData.email!,
         phone: userData.phone || "",
-        userType: userData.userType!,
+        userType: userData.userType!, // ✅ correct format
         createdAt: new Date().toISOString(),
       });
 
-      // Redirect according to userType
-      if (userData.userType === "nanny") {
-        navigate("/profile/setup/nanny");
-      } else {
-        navigate("/profile/setup/parent");
-      }
+      // ✅ Redirect based on role
+      navigate(
+        userData.userType === "nanny"
+          ? "/profile/setup/nanny"
+          : "/profile/setup/parent"
+      );
 
       return true;
     } catch (err: any) {
