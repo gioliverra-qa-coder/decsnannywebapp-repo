@@ -1,14 +1,14 @@
 import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { Star, Shield, Clock, Heart, User } from 'lucide-react';
+import { Star, Shield, Clock, Heart } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { createClient } from '@supabase/supabase-js';
 import NannyCard from '../components/NannyCard';
 import ParentCard from '../components/ParentCard';
+import UserMenu from '../components/UserMenu';
 import { useAuth } from '../contexts/AuthContext';
 
-// Initialize Supabase client
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL!;
 const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY!;
 const supabase = createClient(supabaseUrl, supabaseKey);
@@ -28,7 +28,6 @@ export default function Index() {
     }
   };
 
-  // Fetch profile name
   useEffect(() => {
     async function fetchProfile() {
       if (!user) return;
@@ -45,11 +44,9 @@ export default function Index() {
 
       if (!error && data) setProfile(data);
     }
-
     fetchProfile();
   }, [user]);
 
-  // Fetch recently booked profiles
   useEffect(() => {
     async function fetchRecentlyBooked() {
       if (!user) {
@@ -61,20 +58,17 @@ export default function Index() {
       setLoading(true);
 
       if (user.userType === 'parent') {
-        // Get parent record
         const { data: parentRecord } = await supabase
           .from('parents')
           .select('id')
           .eq('user_id', user.id)
           .single();
-
         if (!parentRecord) {
           setFeaturedProfiles([]);
           setLoading(false);
           return;
         }
 
-        // Fetch nannies this parent booked
         const { data, error } = await supabase
           .from('bookings')
           .select('nanny: nannies(*)')
@@ -82,27 +76,20 @@ export default function Index() {
           .order('created_at', { ascending: false })
           .limit(3);
 
-        if (!error && data) {
-          const nannies = data.map((b: any) => b.nanny).filter(Boolean);
-          setFeaturedProfiles(nannies);
-        } else {
-          setFeaturedProfiles([]);
-        }
+        if (!error && data) setFeaturedProfiles(data.map((b: any) => b.nanny).filter(Boolean));
+        else setFeaturedProfiles([]);
       } else if (user.userType === 'nanny') {
-        // Get nanny record
         const { data: nannyRecord } = await supabase
           .from('nannies')
           .select('id')
           .eq('user_id', user.id)
           .single();
-
         if (!nannyRecord) {
           setFeaturedProfiles([]);
           setLoading(false);
           return;
         }
 
-        // Fetch parents who booked this nanny
         const { data, error } = await supabase
           .from('bookings')
           .select('parent: parents(*)')
@@ -110,17 +97,12 @@ export default function Index() {
           .order('created_at', { ascending: false })
           .limit(3);
 
-        if (!error && data) {
-          const parents = data.map((b: any) => b.parent).filter(Boolean);
-          setFeaturedProfiles(parents);
-        } else {
-          setFeaturedProfiles([]);
-        }
+        if (!error && data) setFeaturedProfiles(data.map((b: any) => b.parent).filter(Boolean));
+        else setFeaturedProfiles([]);
       }
 
       setLoading(false);
     }
-
     fetchRecentlyBooked();
   }, [user]);
 
@@ -135,18 +117,13 @@ export default function Index() {
           >
             DecsNanny
           </h1>
-          <div className="flex gap-2">
+          <div className="flex gap-2 ">
             {!user && (
               <Button variant="outline" onClick={() => navigate('/login')}>
                 Sign In
               </Button>
             )}
-            {user && (
-              <Button variant="ghost" onClick={() => navigate('/profile')}>
-                <User className="w-4 h-4 mr-1" />
-                {profile?.name || 'Profile'}
-              </Button>
-            )}
+            {user && <UserMenu />}
           </div>
         </div>
       </header>
@@ -168,7 +145,6 @@ export default function Index() {
             : 'Please sign in to see available nannies and parents.'}
         </p>
 
-        {/* Buttons */}
         {user ? (
           <div className="flex justify-center gap-4">
             {user.userType === 'parent' && (
@@ -204,9 +180,7 @@ export default function Index() {
         <section className="py-16 bg-white">
           <div className="max-w-6xl mx-auto">
             <h3 className="text-3xl font-bold text-center mb-12">
-              {user.userType === 'parent'
-                ? 'Nannies Recently Booked'
-                : 'Parents Recently Booked'}
+              {user.userType === 'parent' ? 'Nannies Recently Booked' : 'Parents Recently Booked'}
             </h3>
 
             {loading ? (
@@ -216,12 +190,8 @@ export default function Index() {
             ) : (
               <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {user.userType === 'parent'
-                  ? featuredProfiles.map((profile) => (
-                      <NannyCard key={profile.id} nanny={profile} />
-                    ))
-                  : featuredProfiles.map((profile) => (
-                      <ParentCard key={profile.id} parent={profile} />
-                    ))}
+                  ? featuredProfiles.map((profile) => <NannyCard key={profile.id} nanny={profile} />)
+                  : featuredProfiles.map((profile) => <ParentCard key={profile.id} parent={profile} />)}
               </div>
             )}
           </div>

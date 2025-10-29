@@ -1,72 +1,76 @@
 // src/pages/Register.tsx
-import { useState, useEffect } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { User, Mail, Lock, Phone } from 'lucide-react';
-import { toast } from 'sonner';
-import { useAuth } from '../contexts/AuthContext';
-import { supabase } from '../utils/supabaseClient';
+import { useState, useEffect } from "react";
+import { useNavigate, Link } from "react-router-dom";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { User, Mail, Lock, Phone } from "lucide-react";
+import { toast } from "sonner";
+import { useAuth } from "../contexts/AuthContext";
+import { supabase } from "../contexts/AuthContext"; // ✅ Now imported from AuthContext
 
 export default function Register() {
   const navigate = useNavigate();
   const { register } = useAuth();
+
   const [isLoading, setIsLoading] = useState(false);
   const [isGoogleUser, setIsGoogleUser] = useState(false);
 
   const [formData, setFormData] = useState({
-    name: '',
-    email: '',
-    phone: '',
-    password: '',
-    confirmPassword: '',
-    userType: '' as 'parent' | 'nanny' | ''
+    name: "",
+    email: "",
+    phone: "",
+    password: "",
+    confirmPassword: "",
+    userType: "" as "parent" | "nanny" | "",
   });
 
-  // Pre-fill form data if coming from Google login
+  /** ✅ Prefill name & email for Google users */
   useEffect(() => {
     const fillGoogleUser = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (session?.user && session.user.app_metadata?.provider === 'google') {
+      const { data } = await supabase.auth.getSession();
+      const user = data.session?.user;
+
+      if (user && user.app_metadata?.provider === "google") {
         setIsGoogleUser(true);
-        setFormData(prev => ({
+        setFormData((prev) => ({
           ...prev,
-          name: session.user.user_metadata?.full_name || '',
-          email: session.user.email || ''
+          name: user.user_metadata.full_name || "",
+          email: user.email || "",
         }));
       }
     };
+
     fillGoogleUser();
   }, []);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
-    setFormData(prev => ({ ...prev, [name]: value }));
+    setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
+  /** ✅ Submit registration form */
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    // Validate required fields
+    // ✅ Validation for required fields
     if (!formData.name || !formData.email || !formData.phone || !formData.userType) {
-      toast.error('Please fill in all required fields');
+      toast.error("Please fill in all required fields.");
       return;
     }
 
-    // Password validation only for manual users
     if (!isGoogleUser) {
       if (!formData.password || !formData.confirmPassword) {
-        toast.error('Please enter password and confirm it');
+        toast.error("Password and confirmation are required.");
         return;
       }
       if (formData.password !== formData.confirmPassword) {
-        toast.error('Passwords do not match');
+        toast.error("Passwords do not match.");
         return;
       }
       if (formData.password.length < 6) {
-        toast.error('Password must be at least 6 characters');
+        toast.error("Password must be at least 6 characters.");
         return;
       }
     }
@@ -78,20 +82,20 @@ export default function Register() {
           name: formData.name,
           email: formData.email,
           phone: formData.phone,
-          userType: formData.userType
+          userType: formData.userType,
         },
-        isGoogleUser ? undefined : formData.password
+        isGoogleUser ? undefined : formData.password // ✅ skip password for Google
       );
 
-      if (success) {
-        toast.success('Registration successful!');
-        navigate('/profile/setup');
-      } else {
-        toast.error('Registration failed. Please check your details and try again.');
+      if (!success) {
+        toast.error("Registration failed.");
+        return;
       }
+
+      toast.success("Registration successful! 🎉");
+      navigate("/profile/setup"); // ✅ Continue user flow
     } catch (err: any) {
-      console.error('Register error:', err);
-      toast.error(err.message || 'An unexpected error occurred');
+      toast.error(err.message || "Something went wrong.");
     } finally {
       setIsLoading(false);
     }
@@ -102,12 +106,16 @@ export default function Register() {
       <div className="w-full max-w-md">
         <Card className="w-full">
           <CardHeader className="text-center">
-            <CardTitle className="text-2xl font-bold text-green-700">Create an Account</CardTitle>
-            <p className="text-gray-600">Join our community today!</p>
+            <CardTitle className="text-2xl font-bold text-green-700">
+              {isGoogleUser ? "Complete Your Profile" : "Create an Account"}
+            </CardTitle>
+            <p className="text-gray-600">
+              {isGoogleUser ? "Just a few more details..." : "Join our community today!"}
+            </p>
           </CardHeader>
+
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-4">
-              
               {/* Full Name */}
               <div className="space-y-2">
                 <Label htmlFor="name">Full Name</Label>
@@ -118,8 +126,8 @@ export default function Register() {
                     name="name"
                     value={formData.name}
                     onChange={handleChange}
-                    placeholder="Enter your name"
                     className="pl-10"
+                    placeholder="Enter your name"
                     required
                   />
                 </div>
@@ -136,8 +144,8 @@ export default function Register() {
                     type="email"
                     value={formData.email}
                     onChange={handleChange}
-                    placeholder="Enter your email"
                     className="pl-10"
+                    disabled={isGoogleUser}
                     required
                   />
                 </div>
@@ -153,8 +161,8 @@ export default function Register() {
                     name="phone"
                     value={formData.phone}
                     onChange={handleChange}
-                    placeholder="Enter your phone number"
                     className="pl-10"
+                    placeholder="Enter your phone number"
                     required
                   />
                 </div>
@@ -168,7 +176,7 @@ export default function Register() {
                   name="userType"
                   value={formData.userType}
                   onChange={handleChange}
-                  className="w-full border rounded-md py-2 px-3 focus:outline-none focus:ring-2 focus:ring-green-500"
+                  className="w-full border rounded-md py-2 px-3 focus:ring-2 focus:ring-green-500"
                   required
                 >
                   <option value="">Select your role</option>
@@ -177,7 +185,7 @@ export default function Register() {
                 </select>
               </div>
 
-              {/* Password & Confirm Password only for manual users */}
+              {/* Password — Only visible for manual registration */}
               {!isGoogleUser && (
                 <>
                   <div className="space-y-2">
@@ -190,8 +198,8 @@ export default function Register() {
                         type="password"
                         value={formData.password}
                         onChange={handleChange}
-                        placeholder="Enter your password"
                         className="pl-10"
+                        placeholder="Enter your password"
                         required
                       />
                     </div>
@@ -207,8 +215,8 @@ export default function Register() {
                         type="password"
                         value={formData.confirmPassword}
                         onChange={handleChange}
-                        placeholder="Confirm your password"
                         className="pl-10"
+                        placeholder="Confirm your password"
                         required
                       />
                     </div>
@@ -218,21 +226,24 @@ export default function Register() {
 
               <Button
                 type="submit"
-                className="w-full bg-green-600 hover:bg-green-700 text-white"
                 disabled={isLoading}
+                className="w-full bg-green-600 hover:bg-green-700 text-white"
               >
-                {isLoading ? 'Creating account...' : 'Create Account'}
+                {isLoading ? "Saving..." : isGoogleUser ? "Continue" : "Create Account"}
               </Button>
             </form>
 
-            <div className="mt-6 text-center">
-              <p className="text-sm text-gray-600">
-                Already have an account?{' '}
-                <Link to="/login" className="text-green-600 hover:underline font-medium">
-                  Sign in here
-                </Link>
-              </p>
-            </div>
+            {/* Footer */}
+            {!isGoogleUser && (
+              <div className="mt-6 text-center">
+                <p className="text-sm text-gray-600">
+                  Already have an account?{" "}
+                  <Link to="/login" className="text-green-600 hover:underline font-medium">
+                    Sign in here
+                  </Link>
+                </p>
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>

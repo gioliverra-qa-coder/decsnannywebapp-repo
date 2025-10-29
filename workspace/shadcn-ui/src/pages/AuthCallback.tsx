@@ -1,45 +1,41 @@
-import { useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { supabase } from '../utils/supabaseClient';
-import { toast } from 'sonner';
+// src/pages/AuthCallback.tsx
+import { useEffect } from "react";
+import { useNavigate } from "react-router-dom";
+import { supabase } from "../utils/supabaseClient";
+import { toast } from "sonner";
 
 export default function AuthCallback() {
   const navigate = useNavigate();
 
   useEffect(() => {
-    const handleAuth = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
+    const processLogin = async () => {
+      const { data: sessionData } = await supabase.auth.getSession();
+      const sessionUser = sessionData?.session?.user;
 
-      if (!session?.user) {
-        toast.error('No active session found.');
-        navigate('/login');
+      if (!sessionUser) {
+        toast.error("Login failed.");
+        navigate("/login");
         return;
       }
 
-      const userId = session.user.id;
-
-      // Check if user has a record in your custom "users" table
+      // ✅ Check if this user already exists in DB users table
       const { data: userRow } = await supabase
-        .from('users')
-        .select('id')
-        .eq('id', userId)
+        .from("users")
+        .select("id, user_type")
+        .eq("id", sessionUser.id)
         .maybeSingle();
 
       if (userRow) {
-        // ✅ Existing user — go to home
-        navigate('/');
+        // ✅ Existing user → go home
+        navigate("/");
       } else {
-        // 🆕 New Google user — go to register to finish setup
-        navigate('/register');
+        // 🚨 New Google user → needs to finish registration
+        navigate("/register");
       }
     };
 
-    handleAuth();
+    processLogin();
   }, [navigate]);
 
-  return (
-    <div className="flex h-screen items-center justify-center">
-      <p className="text-gray-600">Signing you in...</p>
-    </div>
-  );
+  return <p>Signing you in...</p>;
 }

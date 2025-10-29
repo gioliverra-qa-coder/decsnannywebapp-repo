@@ -1,23 +1,24 @@
-import { useEffect } from 'react';
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
-import { AuthProvider } from './contexts/AuthContext';
-import { Toaster } from 'sonner';
-import Index from './pages/Index';
-import NannyList from './pages/NannyList';
-import NannyProfile from './pages/NannyProfile';
-import BookingForm from './pages/BookingForm';
-import MyBookings from './pages/MyBookings';
-import Login from './pages/Login';
-import Register from './pages/Register';
-import Profile from './pages/Profile';
-import ProfileSetup from './pages/ProfileSetup';
-import NannyDashboard from './pages/NannyDashboard';
-import AuthCallback from './pages/AuthCallback';
+import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
+import { AuthProvider } from "./contexts/AuthContext";
+import { Toaster } from "sonner";
+
+import Index from "./pages/Index";
+import NannyList from "./pages/NannyList";
+import NannyProfile from "./pages/NannyProfile";
+import BookingForm from "./pages/BookingForm";
+import MyBookings from "./pages/MyBookings";
+import Login from "./pages/Login";
+import Register from "./pages/Register";
+import Profile from "./pages/Profile";
+import ProfileSetup from "./pages/ProfileSetup";
+import NannyDashboard from "./pages/NannyDashboard";
+import AuthCallback from "./pages/AuthCallback";
 
 function App() {
   return (
-    <AuthProvider>
-      <Router>
+    <Router>
+      {/* ✅ AuthProvider must be inside Router so useNavigate() works */}
+      <AuthProvider>
         <div className="App">
           <Routes>
             <Route path="/" element={<Index />} />
@@ -32,10 +33,12 @@ function App() {
             <Route path="/profile/setup" element={<ProfileSetup />} />
             <Route path="/auth/callback" element={<AuthCallback />} />
           </Routes>
-          <Toaster />
+
+          {/* Global toast notifications */}
+          <Toaster richColors position="top-right" />
         </div>
-      </Router>
-    </AuthProvider>
+      </AuthProvider>
+    </Router>
   );
 }
 
