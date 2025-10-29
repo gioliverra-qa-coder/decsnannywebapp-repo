@@ -38,23 +38,29 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     isLoading: true,
   });
 
-  // ✅ Extract Google OAuth tokens when returning from Google login
+  // --- Handle Google OAuth redirect and session setup ---
   useEffect(() => {
     const handleOAuthRedirect = async () => {
       const url = new URL(window.location.href);
 
-      // Handle URL fragment token format from Supabase OAuth
+      // Extract tokens if returned via hash fragment
       if (url.hash.includes("access_token")) {
         const params = new URLSearchParams(url.hash.substring(1));
-        await supabase.auth.setSession({
-          access_token: params.get("access_token")!,
-          refresh_token: params.get("refresh_token")!,
-        });
+        const access_token = params.get("access_token");
+        const refresh_token = params.get("refresh_token");
 
-        // ✅ Clean URL
-        window.history.replaceState({}, "", "/auth/callback");
+        if (access_token) {
+          await supabase.auth.setSession({
+            access_token,
+            refresh_token: refresh_token!,
+          });
+
+          // Clean URL
+          window.history.replaceState({}, "", "/auth/callback");
+        }
       }
 
+      // Get session after setting tokens
       const { data } = await supabase.auth.getSession();
       const sessionUser = data?.session?.user;
 
@@ -63,7 +69,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return;
       }
 
-      // ✅ Check if user exists in DB
+      // Check if user exists in DB
       const { data: existingUser } = await supabase
         .from("users")
         .select("*")
@@ -71,10 +77,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         .maybeSingle();
 
       if (existingUser) {
+        // Existing user → redirect home
         authSetUser(existingUser);
-        navigate("/"); // ✅ Existing user → home page
+        navigate("/");
       } else {
-        // 🚨 New Google user → proceed to registration
+        // New Google user → go to register
         setAuthState({
           user: {
             id: sessionUser.id,
@@ -84,10 +91,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             userType: "",
             createdAt: new Date().toISOString(),
           },
-          isAuthenticated: false, // ⚠️ Important: not authenticated yet!
+          isAuthenticated: false,
           isLoading: false,
         });
-
         navigate("/register");
       }
     };
@@ -102,14 +108,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       email: dbUser.email,
       phone: dbUser.phone,
       userType: dbUser.user_type,
-      createdAt: dbUser.created_at,
+      createdAt: dbUser.created_at || new Date().toISOString(),
     };
 
     localStorage.setItem("currentUser", JSON.stringify(formattedUser));
     setAuthState({ user: formattedUser, isAuthenticated: true, isLoading: false });
   };
 
-  // ✅ Manual login (email/password)
+  // --- Manual login ---
   const login = async (email: string, password: string): Promise<boolean> => {
     try {
       const { data, error } = await supabase.auth.signInWithPassword({ email, password });
@@ -131,16 +137,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       authSetUser(userRow);
       toast.success("Welcome back!");
-
       navigate("/");
       return true;
     } catch (err: any) {
-      toast.error(err.message);
+      toast.error(err.message || "An unexpected error occurred");
       return false;
     }
   };
 
-  // ✅ Google Login
+  // --- Google Login ---
   const loginWithGoogle = async () => {
     await supabase.auth.signInWithOAuth({
       provider: "google",
@@ -150,49 +155,48 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     });
   };
 
-  // ✅ Register (works for password users + Google users finishing setup)
+  // --- Register (manual or Google user finishing setup) ---
   const register = async (userData: Partial<User>, password?: string): Promise<boolean> => {
     try {
       const { data: session } = await supabase.auth.getSession();
-
       let userId = session?.session?.user?.id;
 
+      // Manual signup if no userId yet
       if (!userId && password) {
         const { data, error } = await supabase.auth.signUp({
           email: userData.email!,
           password,
         });
-
         if (error || !data.user) {
           toast.error(error?.message || "Registration failed");
           return false;
         }
-
         userId = data.user.id;
       }
 
-      // ✅ Insert or update user row
+      // Insert or update user row
       await supabase.from("users").upsert({
         id: userId,
         name: userData.name,
         email: userData.email,
         phone: userData.phone,
         user_type: userData.userType,
+        created_at: new Date().toISOString(),
       });
 
       authSetUser({
         id: userId!,
         name: userData.name!,
         email: userData.email!,
-        phone: userData.phone,
-        user_type: userData.userType,
-        created_at: new Date().toISOString(),
+        phone: userData.phone || "",
+        userType: userData.userType!,
+        createdAt: new Date().toISOString(),
       });
 
       navigate("/");
       return true;
     } catch (err: any) {
-      toast.error(err.message);
+      toast.error(err.message || "Registration failed");
       return false;
     }
   };
@@ -206,7 +210,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const updateProfile = async (userData: Partial<User>): Promise<boolean> => {
     if (!authState.user) return false;
-
     const { error } = await supabase.from("users").update(userData).eq("id", authState.user.id);
     if (error) return false;
 
