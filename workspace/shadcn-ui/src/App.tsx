@@ -30,7 +30,7 @@ function App() {
             <Route path="/login" element={<Login />} />
             <Route path="/register" element={<Register />} />
             <Route path="/profile" element={<Profile />} />
-            <Route path="/profile/setup" element={<ProfileSetup />} />
+            <Route path="/profile/setup/:type" element={<ProfileSetup />} />
             <Route path="/auth/callback" element={<AuthCallback />} />
           </Routes>
 

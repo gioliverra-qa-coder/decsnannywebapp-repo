@@ -93,7 +93,11 @@ export default function Register() {
       }
 
       toast.success("Registration successful! 🎉");
-      navigate("/profile/setup"); // ✅ Continue user flow
+      if (formData.userType === 'nanny') {
+        navigate('/profile/setup/nanny');
+      } else {
+        navigate('/profile/setup/parent');
+      }
     } catch (err: any) {
       toast.error(err.message || "Something went wrong.");
     } finally {

@@ -43,7 +43,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const handleOAuthRedirect = async () => {
       const url = new URL(window.location.href);
 
-      // Extract tokens if returned via hash fragment
       if (url.hash.includes("access_token")) {
         const params = new URLSearchParams(url.hash.substring(1));
         const access_token = params.get("access_token");
@@ -54,13 +53,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             access_token,
             refresh_token: refresh_token!,
           });
-
-          // Clean URL
           window.history.replaceState({}, "", "/auth/callback");
         }
       }
 
-      // Get session after setting tokens
       const { data } = await supabase.auth.getSession();
       const sessionUser = data?.session?.user;
 
@@ -77,11 +73,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         .maybeSingle();
 
       if (existingUser) {
-        // Existing user → redirect home
         authSetUser(existingUser);
-        navigate("/");
+        navigate("/"); // Existing user → home
       } else {
-        // New Google user → go to register
+        // New Google user → go to registration form
         setAuthState({
           user: {
             id: sessionUser.id,
@@ -137,7 +132,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       authSetUser(userRow);
       toast.success("Welcome back!");
-      navigate("/");
+      navigate("/"); // Go to home page
       return true;
     } catch (err: any) {
       toast.error(err.message || "An unexpected error occurred");
@@ -161,7 +156,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const { data: session } = await supabase.auth.getSession();
       let userId = session?.session?.user?.id;
 
-      // Manual signup if no userId yet
       if (!userId && password) {
         const { data, error } = await supabase.auth.signUp({
           email: userData.email!,
@@ -193,7 +187,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         createdAt: new Date().toISOString(),
       });
 
-      navigate("/");
+      // Redirect according to userType
+      if (userData.userType === "nanny") {
+        navigate("/profile/setup/nanny");
+      } else {
+        navigate("/profile/setup/parent");
+      }
+
       return true;
     } catch (err: any) {
       toast.error(err.message || "Registration failed");
@@ -210,6 +210,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const updateProfile = async (userData: Partial<User>): Promise<boolean> => {
     if (!authState.user) return false;
+
     const { error } = await supabase.from("users").update(userData).eq("id", authState.user.id);
     if (error) return false;
 
