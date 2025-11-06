@@ -109,36 +109,53 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     handleOAuthRedirect();
   }, []);
 
-  // ✅ Manual Login
-  const login = async (email: string, password: string): Promise<boolean> => {
-    try {
-      const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+// ✅ Manual Login
+const login = async (email: string, password: string): Promise<{ success: boolean; message?: string; user?: User; access_token?: string }> => {
+  try {
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
 
-      if (error || !data.user) {
-        toast.error(error?.message || "Login failed");
-        return false;
-      }
-
-      const { data: userRow } = await supabase
-        .from("users")
-        .select("*")
-        .eq("id", data.user.id)
-        .maybeSingle();
-
-      if (!userRow) {
-        toast.error("User not found in database.");
-        return false;
-      }
-
-      authSetUser(userRow);
-      toast.success("Welcome back!");
-      navigate("/");
-      return true;
-    } catch (err: any) {
-      toast.error(err.message || "Unexpected error");
-      return false;
+    if (error || !data.user) {
+      toast.error(error?.message || "Login failed");
+      return { success: false, message: error?.message || "Login failed" };
     }
-  };
+
+    // Fetch user row from your DB
+    const { data: userRow } = await supabase
+      .from("users")
+      .select("*")
+      .eq("id", data.user.id)
+      .maybeSingle();
+
+    if (!userRow) {
+      toast.error("User not found in database.");
+      return { success: false, message: "User not found in database." };
+    }
+
+    // Set user in state/localStorage
+    authSetUser(userRow);
+
+    toast.success("Welcome back!");
+    navigate("/");
+
+    // ✅ Return a custom object including message, user, and token
+    return {
+      success: true,
+      message: "Successfully logged in",
+      user: {
+        id: userRow.id,
+        name: userRow.name,
+        email: userRow.email,
+        phone: userRow.phone,
+        userType: userRow.user_type ?? userRow.userType,
+        createdAt: userRow.created_at || userRow.createdAt || new Date().toISOString(),
+      },
+      access_token: data.session?.access_token,
+    };
+  } catch (err: any) {
+    toast.error(err.message || "Unexpected error");
+    return { success: false, message: err.message || "Unexpected error" };
+  }
+};
 
   // ✅ Google Login
   const loginWithGoogle = async () => {
