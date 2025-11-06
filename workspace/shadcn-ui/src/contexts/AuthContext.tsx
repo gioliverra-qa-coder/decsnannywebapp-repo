@@ -10,13 +10,13 @@ const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY!;
 export const supabase: SupabaseClient = createClient(supabaseUrl, supabaseKey);
 
 interface AuthContextType extends AuthState {
-  login: (email: string, password: string) => Promise<boolean>;
+  login: (email: string, password: string) => Promise<{ success: boolean; message?: string; user?: User; access_token?: string }>;
   loginWithGoogle: () => Promise<void>;
   register: (userData: Partial<User>, password?: string) => Promise<boolean>;
   logout: () => void;
   updateProfile: (userData: Partial<User>) => Promise<boolean>;
   updateBookingStatus: (bookingId: string, status: any) => void;
-  addBooking: (booking: Booking) => void;
+  addBooking: (booking: Booking) => Promise<{ success: boolean; message: string; booking?: Booking }>;
   getBookings: () => Booking[];
   clearAllBookings: () => void;
 }
@@ -45,7 +45,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       name: dbUser.name,
       email: dbUser.email,
       phone: dbUser.phone,
-      userType: dbUser.user_type ?? dbUser.userType, // ✅ FIXED (handles both DB & app format)
+      userType: dbUser.user_type ?? dbUser.userType,
       createdAt: dbUser.created_at || dbUser.createdAt || new Date().toISOString(),
     };
 
@@ -53,12 +53,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setAuthState({ user: formattedUser, isAuthenticated: true, isLoading: false });
   };
 
-  // ✅ Check session on load (Google OAuth + refresh persistence)
+  // ✅ Check session on load
   useEffect(() => {
     const handleOAuthRedirect = async () => {
       const url = new URL(window.location.href);
 
-      // ✅ Extract Google OAuth tokens from hash fragment
       if (url.hash.includes("access_token")) {
         const params = new URLSearchParams(url.hash.substring(1));
         await supabase.auth.setSession({
@@ -66,7 +65,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           refresh_token: params.get("refresh_token")!,
         });
 
-        // ✅ Clean URL
         window.history.replaceState({}, "", "/auth/callback");
       }
 
@@ -78,7 +76,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return;
       }
 
-      // ✅ Check if user exists in your users table
       const { data: existingUser } = await supabase
         .from("users")
         .select("*")
@@ -87,16 +84,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       if (existingUser) {
         authSetUser(existingUser);
-        navigate("/"); // ✅ Existing user goes home
+        navigate("/");
       } else {
-        // ✅ New Google user → continue registration
         setAuthState({
           user: {
             id: sessionUser.id,
             name: sessionUser.user_metadata.full_name || "",
             email: sessionUser.email || "",
             phone: "",
-            userType: "", // still empty until registration step
+            userType: "",
             createdAt: new Date().toISOString(),
           },
           isAuthenticated: false,
@@ -109,53 +105,51 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     handleOAuthRedirect();
   }, []);
 
-// ✅ Manual Login
-const login = async (email: string, password: string): Promise<{ success: boolean; message?: string; user?: User; access_token?: string }> => {
-  try {
-    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+  // ✅ Manual Login
+  const login = async (email: string, password: string) => {
+    try {
+      const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+      if (error || !data.user) {
+        toast.error(error?.message || "Login failed");
+        return { success: false, message: error?.message || "Login failed" };
+      }
 
-    if (error || !data.user) {
-      toast.error(error?.message || "Login failed");
-      return { success: false, message: error?.message || "Login failed" };
+      const { data: userRow } = await supabase
+        .from("users")
+        .select("*")
+        .eq("id", data.user.id)
+        .maybeSingle();
+
+      if (!userRow) {
+        toast.error("User not found in database.");
+        return { success: false, message: "User not found in database." };
+      }
+
+      authSetUser(userRow);
+
+      const response = {
+        success: true,
+        message: "Successfully logged in",
+        user: {
+          id: userRow.id,
+          name: userRow.name,
+          email: userRow.email,
+          phone: userRow.phone,
+          userType: userRow.user_type ?? userRow.userType,
+          createdAt: userRow.created_at || userRow.createdAt || new Date().toISOString(),
+        },
+        access_token: data.session?.access_token,
+      };
+
+      toast.success(response.message);
+      navigate("/");
+
+      return response;
+    } catch (err: any) {
+      toast.error(err.message || "Unexpected error");
+      return { success: false, message: err.message || "Unexpected error" };
     }
-
-    // Fetch user row from your DB
-    const { data: userRow } = await supabase
-      .from("users")
-      .select("*")
-      .eq("id", data.user.id)
-      .maybeSingle();
-
-    if (!userRow) {
-      toast.error("User not found in database.");
-      return { success: false, message: "User not found in database." };
-    }
-
-    // Set user in state/localStorage
-    authSetUser(userRow);
-
-    toast.success("Welcome back!");
-    navigate("/");
-
-    // ✅ Return a custom object including message, user, and token
-    return {
-      success: true,
-      message: "Successfully logged in",
-      user: {
-        id: userRow.id,
-        name: userRow.name,
-        email: userRow.email,
-        phone: userRow.phone,
-        userType: userRow.user_type ?? userRow.userType,
-        createdAt: userRow.created_at || userRow.createdAt || new Date().toISOString(),
-      },
-      access_token: data.session?.access_token,
-    };
-  } catch (err: any) {
-    toast.error(err.message || "Unexpected error");
-    return { success: false, message: err.message || "Unexpected error" };
-  }
-};
+  };
 
   // ✅ Google Login
   const loginWithGoogle = async () => {
@@ -165,13 +159,12 @@ const login = async (email: string, password: string): Promise<{ success: boolea
     });
   };
 
-  // ✅ Register (manual or finishing Google signup)
-  const register = async (userData: Partial<User>, password?: string): Promise<boolean> => {
+  // ✅ Register
+  const register = async (userData: Partial<User>, password?: string) => {
     try {
       const { data: session } = await supabase.auth.getSession();
       let userId = session?.session?.user?.id;
 
-      // ✅ Manual login flow (email/password)
       if (!userId && password) {
         const { data, error } = await supabase.auth.signUp({
           email: userData.email!,
@@ -186,33 +179,25 @@ const login = async (email: string, password: string): Promise<{ success: boolea
         userId = data.user.id;
       }
 
-      // ✅ Save user to DB
       await supabase.from("users").upsert({
         id: userId,
         name: userData.name,
         email: userData.email,
         phone: userData.phone,
-        user_type: userData.userType, // ✅ DB column
+        user_type: userData.userType,
         created_at: new Date().toISOString(),
       });
 
-      // ✅ Save authenticated user
       authSetUser({
         id: userId!,
         name: userData.name!,
         email: userData.email!,
         phone: userData.phone || "",
-        userType: userData.userType!, // ✅ correct format
+        userType: userData.userType!,
         createdAt: new Date().toISOString(),
       });
 
-      // ✅ Redirect based on role
-      navigate(
-        userData.userType === "nanny"
-          ? "/profile/setup/nanny"
-          : "/profile/setup/parent"
-      );
-
+      navigate(userData.userType === "nanny" ? "/profile/setup/nanny" : "/profile/setup/parent");
       return true;
     } catch (err: any) {
       toast.error(err.message || "Registration failed");
@@ -227,7 +212,7 @@ const login = async (email: string, password: string): Promise<{ success: boolea
     navigate("/login");
   };
 
-  const updateProfile = async (userData: Partial<User>): Promise<boolean> => {
+  const updateProfile = async (userData: Partial<User>) => {
     if (!authState.user) return false;
 
     const { error } = await supabase.from("users").update(userData).eq("id", authState.user.id);
@@ -238,8 +223,30 @@ const login = async (email: string, password: string): Promise<{ success: boolea
     return true;
   };
 
-  const updateBookingStatus = () => {};
-  const addBooking = () => {};
+  // ✅ Booking functions
+  const updateBookingStatus = () => { };
+  
+  const addBooking = async (booking: Booking) => {
+    try {
+      const { error, data: inserted } = await supabase.from("bookings").insert([booking]).select();
+      if (error) {
+        toast.error("Failed to create booking");
+        return { success: false, message: "Failed to create booking" };
+      }
+
+      // Optionally update local storage
+      const currentBookings = JSON.parse(localStorage.getItem("bookings") || "[]");
+      localStorage.setItem("bookings", JSON.stringify([...currentBookings, inserted[0]]));
+
+      toast.success("Booking created successfully");
+      return { success: true, message: "Booking created successfully", booking: inserted[0] };
+    } catch (err) {
+      console.error(err);
+      toast.error("Unexpected error creating booking");
+      return { success: false, message: "Unexpected error creating booking" };
+    }
+  };
+
   const getBookings = (): Booking[] => JSON.parse(localStorage.getItem("bookings") || "[]");
   const clearAllBookings = () => localStorage.setItem("bookings", JSON.stringify([]));
 
