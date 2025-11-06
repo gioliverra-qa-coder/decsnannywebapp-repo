@@ -107,99 +107,115 @@ export default function BookingForm() {
   const totalCost = formData.duration ? parseInt(formData.duration) * nanny.hourlyrate : 0;
 
   const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  e.preventDefault();
 
-    if (
-      !formData.date ||
-      !formData.time ||
-      !formData.duration ||
-      !formData.name ||
-      !formData.email ||
-      !formData.phone
-    ) {
-      toast.error('Please fill in all required fields');
+  // ✅ 1️⃣ Validate required fields
+  if (
+    !formData.date ||
+    !formData.time ||
+    !formData.duration ||
+    !formData.name ||
+    !formData.email ||
+    !formData.phone
+  ) {
+    toast.error('Please fill in all required fields');
+    return;
+  }
+
+  setSubmitting(true);
+
+  try {
+    // ✅ 2️⃣ Get parent record
+    const { data: parentRecord, error: parentError } = await supabase
+      .from('parents')
+      .select('id, name')
+      .eq('user_id', user?.id)
+      .single();
+
+    if (parentError || !parentRecord) {
+      toast.error('Parent profile not found');
+      setSubmitting(false);
       return;
     }
 
-    setSubmitting(true);
+    // ✅ 3️⃣ Calculate start and end times
+    const startTime = formData.time;
+    const endHour = parseInt(startTime.split(':')[0]) + parseInt(formData.duration);
+    const endTime = `${endHour.toString().padStart(2, '0')}:${startTime.split(':')[1]}`;
+    const bookingDate = format(formData.date, 'yyyy-MM-dd');
 
-    try {
-      // 🧩 1️⃣ Get the parent record (since parent_id references parents.id)
-      const { data: parentRecord, error: parentError } = await supabase
-        .from('parents')
-        .select('id, name')
-        .eq('user_id', user.id)
-        .single();
+    // ✅ 4️⃣ Check for overlapping bookings
+    const { data: existingBookings, error: checkError } = await supabase
+      .from('bookings')
+      .select('start_time, end_time')
+      .eq('nanny_id', nanny?.id)
+      .eq('date', bookingDate)
+      .in('status', ['pending', 'confirmed']); // only block active bookings
 
-      if (parentError || !parentRecord) {
-        toast.error('Parent profile not found');
-        setSubmitting(false);
-        return;
-      }
+    if (checkError) {
+      console.error('Error checking existing bookings:', checkError);
+    }
 
-      // 🧩 2️⃣ Calculate time range
-      const startTime = formData.time;
-      const endHour = parseInt(startTime.split(':')[0]) + parseInt(formData.duration);
-      const endTime = `${endHour.toString().padStart(2, '0')}:${startTime.split(':')[1]}`;
-      const bookingDate = format(formData.date, 'yyyy-MM-dd');
+    const overlap = existingBookings?.some((b) => {
+      const existingStart = b.start_time;
+      const existingEnd = b.end_time;
+      return startTime < existingEnd && endTime > existingStart;
+    });
 
-      // 🧩 3️⃣ Check for existing overlapping bookings for this nanny
-      const { data: existingBookings, error: checkError } = await supabase
-        .from('bookings')
-        .select('start_time, end_time')
-        .eq('nanny_id', nanny.id)
-        .eq('date', bookingDate)
-        .in('status', ['pending', 'confirmed']); // only block active bookings
+    if (overlap) {
+      toast.error('This nanny is already booked during that time.');
+      setSubmitting(false);
+      return;
+    }
 
-      if (checkError) {
-        console.error('Error checking existing bookings:', checkError);
-      }
+    // ✅ 5️⃣ Build booking object
+    const bookingData = {
+      parent_id: parentRecord.id,
+      nanny_id: nanny?.id,
+      nanny_name: nanny?.name,
+      parent_name: parentRecord.name || formData.name,
+      date: bookingDate,
+      start_time: startTime,
+      end_time: endTime,
+      special_instructions: formData.specialRequirements || null,
+      status: 'pending',
+      hourlyrate: nanny?.hourlyrate,
+      total_amount: totalCost,
+      created_at: new Date().toISOString(),
+    };
 
-      const overlap = existingBookings?.some((b) => {
-        const existingStart = b.start_time;
-        const existingEnd = b.end_time;
-        return startTime < existingEnd && endTime > existingStart;
-      });
+    // ✅ 6️⃣ Insert booking and return inserted row
+    const { data: createdBooking, error } = await supabase
+      .from('bookings')
+      .insert([bookingData])
+      .select()
+      .single();
 
-      if (overlap) {
-        toast.error('This nanny is already booked during that time.');
-        setSubmitting(false);
-        return;
-      }
-
-      // 🧩 4️⃣ Build booking object
-      const bookingData = {
-        parent_id: parentRecord.id,
-        nanny_id: nanny.id,
-        nanny_name: nanny.name,
-        parent_name: parentRecord.name || formData.name,
-        date: bookingDate,
-        start_time: startTime,
-        end_time: endTime,
-        special_instructions: formData.specialRequirements || null,
-        status: 'pending',
-        hourlyrate: nanny.hourlyrate,
-        total_amount: totalCost,
-        created_at: new Date().toISOString(),
+    if (error) {
+      console.error('Error creating booking:', error);
+      toast.error('Failed to submit booking');
+    } else {
+      // ✅ 7️⃣ Return JSON message
+      const response = {
+        message: 'Booking created successfully',
+        booking: createdBooking,
       };
 
-      // 🧩 5️⃣ Insert booking
-      const { error } = await supabase.from('bookings').insert([bookingData]);
+      console.log('Booking Response:', response); // View in Chrome DevTools > Console
+      toast.success(response.message);
 
-      if (error) {
-        console.error('Error creating booking:', error);
-        toast.error('Failed to submit booking');
-      } else {
-        toast.success('Booking submitted successfully!');
-        navigate('/bookings');
-      }
-    } catch (err) {
-      console.error('Unexpected error:', err);
-      toast.error('Something went wrong');
-    } finally {
-      setSubmitting(false);
+      // Optionally navigate to bookings page
+      navigate('/bookings');
     }
-  };
+  } catch (err) {
+    console.error('Unexpected error:', err);
+    toast.error('Something went wrong');
+  } finally {
+    setSubmitting(false);
+  }
+};
+
+
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
