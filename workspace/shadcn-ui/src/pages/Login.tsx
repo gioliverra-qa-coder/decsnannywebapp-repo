@@ -28,12 +28,10 @@ export default function Login() {
 
     setIsLoading(true);
     try {
-      const success = await login(formData.email, formData.password);
-      if (success) {
-        toast.success('Login successful!');
-        navigate('/'); // ✅ Redirect to home
-      } else {
-        toast.error('Invalid email or password');
+      const response = await login(formData.email, formData.password);
+
+      if (!response.success) {
+        // Do nothing OR optionally handle something UI related
       }
     } catch (err: any) {
       console.error(err);

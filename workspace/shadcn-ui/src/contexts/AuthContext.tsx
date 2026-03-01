@@ -108,49 +108,39 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // ✅ Manual Login
   const login = async (email: string, password: string) => {
     try {
-      const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
+
       if (error || !data.user) {
-        toast.error(error?.message || "Login failed");
-        return { success: false, message: error?.message || "Login failed" };
+        toast.error(error?.message || "Invalid email or password");
+        return { success: false };
       }
 
-      const { data: userRow } = await supabase
+      const { data: userRow, error: userError } = await supabase
         .from("users")
         .select("*")
         .eq("id", data.user.id)
         .maybeSingle();
 
-      if (!userRow) {
+      if (userError || !userRow) {
         toast.error("User not found in database.");
-        return { success: false, message: "User not found in database." };
+        return { success: false };
       }
 
       authSetUser(userRow);
 
-      const response = {
-        success: true,
-        message: "Successfully logged in",
-        user: {
-          id: userRow.id,
-          name: userRow.name,
-          email: userRow.email,
-          phone: userRow.phone,
-          userType: userRow.user_type ?? userRow.userType,
-          createdAt: userRow.created_at || userRow.createdAt || new Date().toISOString(),
-        },
-        access_token: data.session?.access_token,
-      };
-
-      toast.success(response.message);
+      toast.success("Login successful!");
       navigate("/");
 
-      return response;
+      return { success: true };
+
     } catch (err: any) {
-      toast.error(err.message || "Unexpected error");
-      return { success: false, message: err.message || "Unexpected error" };
+      toast.error("Unexpected error. Please try again.");
+      return { success: false };
     }
   };
-
   // ✅ Google Login
   const loginWithGoogle = async () => {
     await supabase.auth.signInWithOAuth({
@@ -225,7 +215,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   // ✅ Booking functions
   const updateBookingStatus = () => { };
-  
+
   const addBooking = async (booking: Booking) => {
     try {
       const { error, data: inserted } = await supabase.from("bookings").insert([booking]).select();
